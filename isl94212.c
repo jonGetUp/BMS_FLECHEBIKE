@@ -76,8 +76,6 @@ void isl_init(void)
     SPI1TWIDTH=0b00000000;      // All message will be multiple of a byte 
     SPI1CON0bits.EN=1;          // SPI module on and operating
    
-    isl_write(ISL_OVERVOLT_SET,isl_conv_mv2Cell(4100));
-    isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3200));
     //----------------------------------------------------------------------------    
     isl_calc_vref_and_temp();   // get true reference voltage and temperatures
     //----------------------------------------------------------------------------

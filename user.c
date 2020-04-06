@@ -91,16 +91,18 @@ void InitApp(void)
     //--------------------------------------------------------------------------            
     // PPSLOCK mapping can't be changed
     PPSLOCKED=1;
-
-    /* Configure the IPEN bit (1=on) in RCON to turn on/off int priorities */
-
-    /* Enable interrupts */
-//SAP    INTCON0bits.GIE=1; // all unmasked interrupts are allowed
-    
-//SAP    PIE0bits.IOCIE=0; // interrupts on change are  not avaliable
-//SAP    PIE3bits.TMR0IE=1; // timer0 interrupts are enabled
-    
-//SAP    IOCBPbits.IOCBP0=1; // interrupt on change on port rb0 triggered on rising
-//SAP    IOCBNbits.IOCBN0=1; // interrupt on change on port rb0 triggered on falling
+    //--------------------------------------------------------------------------            
+    // setup timer 0 for 10 ms interrupt
+    T0CON0bits.EN = 1;                  // enable timer 0
+    T0CON0bits.MD16 = 1;                // 16 bits timer
+    T0CON1bits.CS = 2;                  // osc = Fosc/4 -> 16MHz
+    T0CON0bits.OUTPS = 15;              // divide by 16 -> 1MHz
+    TMR0 = 65535 - 10000;               // isr each 10ms
+    TMR0IE = 1;                         // enable interrupts
+    //--------------------------------------------------------------------------            
+    // external interrupt control
+    IOCIE = 1;                          // enable external interrupts
+    IOCBP = 0x03;                       // enable rising on RB0, RB1
+    IOCBN = 0x03;                       // enable falling on RB0, RB1
 }
 

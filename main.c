@@ -97,6 +97,7 @@ void main(void)
 {
     uint8_t i;
     int8_t retCode;
+    uint16_t temp16;
     //--------------------------------------------------------------------------
     ConfigureOscillator();              // setup CPU at 64MHz
     InitApp();                          // initialize I/O ports
@@ -120,8 +121,30 @@ void main(void)
     txMsg.Ext = 1;
     txMsg.NoOfBytes = 2;
     txMsg.Remote = 0;
+    //--------------------------------------------------------------------------
+    bmsState.curState = POWERON;        // just powered on
+    isl_write(ISL_OVERVOLT_SET,isl_conv_mv2Cell(4100));
+    isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3100));
+    isl_write(ISL_CELLSETUP,0b000001100000);    // enable all cell except 5 & 6
+    //--------------------------------------------------------------------------
     while(1)
     {
+        //----------------------------------------------------------------------
+        if(time10ms != 0)
+        {
+            if((bmsState.tmr_scanVolt--) == 0)
+            {
+                bmsState.tmr_scanVolt = 10;         // each second for test
+                isl_command(ISL_CMD_SCANVOLT);      // scan all voltages
+            }
+            
+            
+        }
+        temp16 = isl_read(ISL_FAULTSTATUS);
+        if(temp16 != 0)
+        {
+            can_send_charger_consign(200, 10, 0); // 20V, 1A, on
+        }
         can_send_charger_consign(200, 10, 0); // 20V, 1A, on
         __delay_ms(100);
         if(CANRXMessageIsPending()!=0)

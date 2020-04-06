@@ -13,11 +13,20 @@
 
 #include "isl94212regs.h"
 #include "can_highlevel.h"
+
+typedef enum
+{
+    POWERON
+    
+}bmsStatus;
+
 struct BMS_STATE
 {
+    bmsStatus           curState;               // current state of BMS
     //--------------------------------------------------------------------------
     uint16_t            batVolt;                // battery voltage in mV
     uint16_t            cellVolt[12];           // each cell voltage in mV
+    uint8_t             tmr_scanVolt;           // timer for scan voltages
     //--------------------------------------------------------------------------
     uint16_t            intTemp;                // internal temperature (raw)
     int8_t              intDegree;              // int. temp. in degree
