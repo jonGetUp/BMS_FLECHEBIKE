@@ -1,0 +1,106 @@
+/******************************************************************************/
+/* Files to Include                                                           */
+/******************************************************************************/
+
+#if defined(__XC)
+    #include <xc.h>         /* XC8 General Include File */
+#elif defined(HI_TECH_C)
+    #include <htc.h>        /* HiTech General Include File */
+#elif defined(__18CXX)
+    #include <p18cxxx.h>    /* C18 General Include File */
+#endif
+
+#if defined(__XC) || defined(HI_TECH_C)
+
+#include <stdint.h>         /* For uint8_t definition */
+#include <stdbool.h>        /* For true/false definition */
+
+#endif
+
+#include "Pinnames.h"    /*header where all pin name are defined as in BMS plan*/
+#include "user.h"
+
+/******************************************************************************/
+/* User Functions                                                             */
+/******************************************************************************/
+
+/* <Initialize variables in user.h and insert code for user algorithms.> */
+
+void InitApp(void)
+{
+    //--------------------------------------------------------------------------
+    // PORTA connections:
+    // BIT   DIR        NAME
+    //  0    INPUT_A    Isense (analogic input from MAX9918ASA)
+    //  1    OUTPUT     x
+    //  2    OUTPUT     x
+    //  3    INPUT_A    1.5Vref (analogic reference voltage from MAX6018)
+    //  4    OUTPUT     x
+    //  5    OUTPUT     /SS (chip select for ISL94212INZ)
+    //  6    OUTPUT     crystal 32.768kHz
+    //  7    INPUT      crystal 32.768kHz    
+    LATA = 0x20;
+    TRISA = 0x49;
+    ANSELA= 0x09;
+    //--------------------------------------------------------------------------
+    // PORTB connections:
+    // BIT   DIR        NAME
+    //  0    INPUT_INT  /Batt_FAULT from LTC4368HMS
+    //  1    INPUT_INT  /FAULT from ISL94212INZ
+    //  2    INPUT_?    /DRDY from ISL94212INZ
+    //  3    INPUT      CAN_RX
+    //  4    OUTPUT     CAN_TX
+    //  5    OUTPUT     x
+    //  6    INPUT      ICSP_CLK (debug / prog)
+    //  7    INPUT      ICSP_DAT (debug / prog) 
+    LATB = 0;
+    TRISB = 0xCF;
+    ANSELB = 0;
+    //--------------------------------------------------------------------------
+    // PORTC connections:
+    // BIT   DIR        NAME
+    //  0    OUTPUT     /SHDN shutdown to LTC4368HMS
+    //  1    OUTPUT     EN_ISL enable to ISL94212INZ
+    //  2    OUTPUT     CAN_POWERDOWN
+    //  3    OUTPUT     SCLK clock to ISL94212INZ
+    //  4    INPUT      MISO data from ISL94212INZ
+    //  5    OUTPUT     MOSI data to ISL94212INZ
+    //  6    OUTPUT     /EN_Isense to MAX9918ASA
+    //  7    OUTPUT     EN_Vref enable reference voltage
+    LATC = 0b01000100;
+    TRISC = 0x10;
+    ANSELC = 0;
+    //--------------------------------------------------------------------------        
+    /*properly map pins for SPI communication (MASTER FULL DUPLEX )*/
+    //SPI OUTPUTS
+    // select PORTC<3> as SPI1(SCK) output
+    RC3PPS=0b011110;
+    //select PORTC<5> as SPI1(SDO) output
+    RC5PPS=0b011111;
+    //select PORTA<5> as SPI1(nSS) output
+    RA5PPS=0b100000;
+    //SPI INPUTS
+    //select PORTC<4> as SPI1(SDI)
+    SPI1SDIPPS=0b00010100;
+    //--------------------------------------------------------------------------            
+    /*properly map pins for CAN communication*/
+    // CAN input on RB3;
+    CANRXPPS=0b00001011;
+    // CAN output CANTX0 on RB4
+    RB4PPS=0b110011;
+    //--------------------------------------------------------------------------            
+    // PPSLOCK mapping can't be changed
+    PPSLOCKED=1;
+
+    /* Configure the IPEN bit (1=on) in RCON to turn on/off int priorities */
+
+    /* Enable interrupts */
+//SAP    INTCON0bits.GIE=1; // all unmasked interrupts are allowed
+    
+//SAP    PIE0bits.IOCIE=0; // interrupts on change are  not avaliable
+//SAP    PIE3bits.TMR0IE=1; // timer0 interrupts are enabled
+    
+//SAP    IOCBPbits.IOCBP0=1; // interrupt on change on port rb0 triggered on rising
+//SAP    IOCBNbits.IOCBN0=1; // interrupt on change on port rb0 triggered on falling
+}
+

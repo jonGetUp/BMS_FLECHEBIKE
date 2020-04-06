@@ -1,0 +1,14 @@
+/build/
+/debug/
+/nbproject/Makefile-variables.mk
+/nbproject/Package-Hardware_1.bash
+/nbproject/Makefile-genesis.properties
+/nbproject/Makefile-local-Hardware_2.mk
+/nbproject/Makefile-local-Hardware_1.mk
+/nbproject/Makefile-impl.mk
+/nbproject/Makefile-Hardware_2.mk
+/nbproject/Package-Hardware_2.bash
+/nbproject/Makefile-Hardware_1.mk
+/nbproject/private/SuppressibleMessageMemo.properties
+/nbproject/private/private.xml
+/dist/
