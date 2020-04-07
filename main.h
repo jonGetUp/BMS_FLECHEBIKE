@@ -10,23 +10,39 @@
 /********************************************************************************/
 
 #define _XTAL_FREQ 64000000L //(for the use of delay macro)
-
+#ifndef __MAIN_H
+#define __MAIN_H
 #include "isl94212regs.h"
 #include "can_highlevel.h"
 
 typedef enum
 {
-    POWERON
-    
-}bmsStatus;
+    SM_IDLE,
+    SM_LOAD,
+    SM_ERROR_IDLE,
+    SM_FAST_CHARGE,
+    SM_SLOW_CHARGE
+}smMain;
+
+typedef enum
+{
+    NO_FAULT,
+    OVERTEMP,
+    WAIT_TEMP_LOWERED,
+    OVERVOLT,
+    UNDERVOLT,
+    OPENWIRE,
+    OTHER_FAULT
+}bmsFault;
 
 struct BMS_STATE
 {
-    bmsStatus           curState;               // current state of BMS
+    smMain              smMain;                 // current state of BMS
+    bmsFault            curFault;               // fault on system
+    uint8_t             curFaultDetail;         // fault on system
     //--------------------------------------------------------------------------
     uint16_t            batVolt;                // battery voltage in mV
     uint16_t            cellVolt[12];           // each cell voltage in mV
-    uint8_t             tmr_scanVolt;           // timer for scan voltages
     //--------------------------------------------------------------------------
     uint16_t            intTemp;                // internal temperature (raw)
     int8_t              intDegree;              // int. temp. in degree
@@ -67,11 +83,14 @@ struct BMS_STATE
     float               refVolt_corrected;      // ref voltage corrected
     float               vRef;                   // true vRef (near 2.5V)
     //--------------------------------------------------------------------------
-    int32_t             battery_currrent;       // current on battery in mA +/-
+    int32_t             battery_current;        // current on battery in mA +/-
     //--------------------------------------------------------------------------
     uint16_t            charger_voltage;        // voltage on charger
     uint16_t            charger_current;        // current on charger
     ChargerStatus_t     charger_status;         // status of charger
+    uint8_t             charger_fast_present;   // the fast charger is present
+    uint8_t             charger_fast_timer;     // timer to detect
 };
 
 extern struct BMS_STATE bmsState;
+#endif

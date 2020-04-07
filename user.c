@@ -19,6 +19,8 @@
 
 #include "Pinnames.h"    /*header where all pin name are defined as in BMS plan*/
 #include "user.h"
+#include "isl94212regs.h"
+#include "isl94212.h"
 
 /******************************************************************************/
 /* User Functions                                                             */
@@ -106,3 +108,75 @@ void InitApp(void)
     IOCBN = 0x03;                       // enable falling on RB0, RB1
 }
 
+bmsFault FaultAnalyse(void)
+{
+    uint16_t statFault;
+    bmsState.curFault = NO_FAULT;
+    //--------------------------------------------------------------------------
+    statFault = isl_read(ISL_FAULTSTATUS);
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    if(statFault & 0x010)           // over temperature fault
+    {
+        bmsState.curFault = OVERTEMP;
+        bmsState.curFaultDetail = isl_read(ISL_OVERTEMP_F);  // get overtemp sensor
+        isl_write(ISL_OVERTEMP_F,0);    // clear fault flag
+        isl_write(ISL_FAULTSTATUS,0);   // clear fault flag
+        return bmsState.curFault;
+    }    
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    if(statFault & 0x020)           // over voltage fault
+    {
+        bmsState.curFault = OVERVOLT;
+        bmsState.curFaultDetail = isl_read(ISL_OVERVOLT_F);  // get overvolt info
+        isl_write(ISL_OVERVOLT_F,0);    // clear fault flag
+        isl_write(ISL_FAULTSTATUS,0);   // clear fault flag
+        return bmsState.curFault;
+    }    
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    if(statFault & 0x040)           // under voltage fault
+    {
+        bmsState.curFault = UNDERVOLT;
+        bmsState.curFaultDetail = isl_read(ISL_UNDERVOLT_F);  // get undervolt info
+        isl_write(ISL_UNDERVOLT_F,0);   // clear fault flag
+        isl_write(ISL_FAULTSTATUS,0);   // clear fault flag
+        return bmsState.curFault;
+    }    
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    if(statFault & 0x080)           // open wire fault
+    {
+        bmsState.curFault = OPENWIRE;
+        bmsState.curFaultDetail = isl_read(ISL_OPENWIRE_F);  // get open wire info
+        isl_write(ISL_OPENWIRE_F,0);    // clear fault flag
+        isl_write(ISL_FAULTSTATUS,0);   // clear fault flag
+        return bmsState.curFault;
+    }
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    bmsState.curFault = OTHER_FAULT;
+    bmsState.curFaultDetail = statFault;
+    return bmsState.curFault;
+}
+
+smMain sm_execute_idle(void)
+{
+    if(bmsState.curFault != NO_FAULT)
+    {
+        return SM_ERROR_IDLE; 
+    }
+    //--------------------------------------------------------------
+    if(bmsState.battery_current > 100)
+    {
+        isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3500)); // set limit for load
+        return SM_LOAD; 
+    }
+    //--------------------------------------------------------------
+    if(bmsState.battery_current < -100)
+    {
+        return SM_SLOW_CHARGE; 
+    }
+    //--------------------------------------------------------------
+    if(bmsState.charger_fast_present != 0)
+    {
+        return SM_FAST_CHARGE;
+    }    
+    return SM_IDLE;
+}

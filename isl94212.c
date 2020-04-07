@@ -309,7 +309,7 @@ int16_t isl_conv_vbat2mV(uint16_t rawVal)
     float temp = rawVal;
     if(rawVal >= 8191)
     {
-        temp = (int32_t)rawVal - 16384;
+        //temp = (int32_t)rawVal - 16384;
     }
     return (int16_t)((temp * 15935.0784 * bmsState.vRef) / 8192);
 }

@@ -40,6 +40,23 @@
 #define ISL_UNDERVOLT_F   (((0x02 << 6) | (0x01)) << 6)   ///< one of 12 cell undervolt
 #define ISL_OPENWIRE_F    (((0x02 << 6) | (0x02)) << 6)   ///< one of 12 cell openwire
 #define ISL_FAULTSETUP    (((0x02 << 6) | (0x03)) << 6)   ///< scan interval, ...
+#define ISL_FS_TEMP_I    (1 << 8)
+#define ISL_FS_TEMP_1    (1 << 9)
+#define ISL_FS_TEMP_2    (1 << 10)
+#define ISL_FS_TEMP_3    (1 << 11)
+#define ISL_FS_TEMP_4    (1 << 12)
+#define ISL_FS_SAMPLE_1    (0 << 5)
+#define ISL_FS_SAMPLE_2    (1 << 5)
+#define ISL_FS_SAMPLE_4    (2 << 5)
+#define ISL_FS_SAMPLE_8    (3 << 5)
+#define ISL_FS_SAMPLE_16   (4 << 5)
+#define ISL_FS_SAMPLE_32   (5 << 5)
+#define ISL_FS_SAMPLE_64   (6 << 5)
+#define ISL_FS_SAMPLE_128  (7 << 5)
+#define ISL_FS_INTERVAL_SHIFT   (0)
+
+
+
 #define ISL_FAULTSTATUS   (((0x02 << 6) | (0x04)) << 6)   ///< see datasheet p.65
 #define ISL_CELLSETUP     (((0x02 << 6) | (0x05)) << 6)   ///< cell check config
 #define ISL_OVERTEMP_F    (((0x02 << 6) | (0x06)) << 6)   ///< over temperature fault

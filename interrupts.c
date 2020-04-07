@@ -22,6 +22,7 @@
 #include "Pinnames.h"    /*header where all pin name are defined as in BMS plan*/
 
 uint8_t time10ms = 0;
+uint8_t time1s = 0;
 uint8_t islFault = 0;
 uint8_t batFault = 0;
 /******************************************************************************/
@@ -29,6 +30,7 @@ uint8_t batFault = 0;
 /******************************************************************************/
 void __interrupt(high_priority) high_isr(void)
 {
+    static uint8_t counter10ms=0;
     //----------------------------------------------------------------------------
     // interrupt from CANbus ?
     CANISR();
@@ -38,6 +40,12 @@ void __interrupt(high_priority) high_isr(void)
     {
         TMR0IF = 0;                     // clear ISR flag
         time10ms = 1;
+        counter10ms++;
+        if(counter10ms == 10)
+        {
+            counter10ms = 0;
+            time1s = 1;
+        }
     }
     //----------------------------------------------------------------------------
     // external interrupts
