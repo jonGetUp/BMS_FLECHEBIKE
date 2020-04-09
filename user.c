@@ -14,14 +14,15 @@
 
 #include <stdint.h>         /* For uint8_t definition */
 #include <stdbool.h>        /* For true/false definition */
-
+#include <stdlib.h>
 #endif
 
 #include "Pinnames.h"    /*header where all pin name are defined as in BMS plan*/
+//#include "main.h"
 #include "user.h"
 #include "isl94212regs.h"
 #include "isl94212.h"
-
+#include "system_limits.h"
 /******************************************************************************/
 /* User Functions                                                             */
 /******************************************************************************/
@@ -34,16 +35,16 @@ void InitApp(void)
     // PORTA connections:
     // BIT   DIR        NAME
     //  0    INPUT_A    Isense (analogic input from MAX9918ASA)
-    //  1    OUTPUT     x
-    //  2    OUTPUT     x
-    //  3    INPUT_A    1.5Vref (analogic reference voltage from MAX6018)
-    //  4    OUTPUT     x
+    //  1    INPUT_A    VLoad_Measure (hardware rev.2)
+    //  2    OUTPUT     /CS for LEDs (hardware rev.2)
+    //  3    INPUT_A    4.096 Vref (analogic reference voltage)
+    //  4    OUTPUT     /CS for Bluetooth (hardware rev.2)
     //  5    OUTPUT     /SS (chip select for ISL94212INZ)
     //  6    OUTPUT     crystal 32.768kHz
     //  7    INPUT      crystal 32.768kHz    
-    LATA = 0x20;
-    TRISA = 0x49;
-    ANSELA= 0x09;
+    LATA = 0x34;
+    TRISA = 0x4B;
+    ANSELA= 0x0B;
     //--------------------------------------------------------------------------
     // PORTB connections:
     // BIT   DIR        NAME
@@ -52,7 +53,7 @@ void InitApp(void)
     //  2    INPUT_?    /DRDY from ISL94212INZ
     //  3    INPUT      CAN_RX
     //  4    OUTPUT     CAN_TX
-    //  5    OUTPUT     x
+    //  5    OUTPUT     FAST_CHARGE (hardware rev.2)
     //  6    INPUT      ICSP_CLK (debug / prog)
     //  7    INPUT      ICSP_DAT (debug / prog) 
     LATB = 0;
@@ -80,7 +81,9 @@ void InitApp(void)
     //select PORTC<5> as SPI1(SDO) output
     RC5PPS=0b011111;
     //select PORTA<5> as SPI1(nSS) output
-    RA5PPS=0b100000;
+    RA5PPS=0b000000;    // RA5 (CS for ISL) is default GPIO high
+    RA2PPS=0b000000;    // RA2 (CS for LEDs) is default GPIO high
+    RA4PPS=0b000000;    // RA4 (CS for Bluetooth) is default GPIO high
     //SPI INPUTS
     //select PORTC<4> as SPI1(SDI)
     SPI1SDIPPS=0b00010100;
@@ -90,9 +93,6 @@ void InitApp(void)
     CANRXPPS=0b00001011;
     // CAN output CANTX0 on RB4
     RB4PPS=0b110011;
-    //--------------------------------------------------------------------------            
-    // PPSLOCK mapping can't be changed
-    PPSLOCKED=1;
     //--------------------------------------------------------------------------            
     // setup timer 0 for 10 ms interrupt
     T0CON0bits.EN = 1;                  // enable timer 0
@@ -108,6 +108,114 @@ void InitApp(void)
     IOCBN = 0x03;                       // enable falling on RB0, RB1
 }
 
+/*********************************************************************************/
+/*********************************************************************************/
+void led_display(ledDisplay display)
+{
+    volatile uint8_t dummy;
+    
+    RA2PPS=0b100000;                    // RA2 is the CS signal
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    while (SPI1CON2bits.BUSY){};        // check no pending communication
+    SPI1TCNT = 1;                       // bytes to send = 1
+    SPI1TXB=display;                    // write leds activity
+    while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    dummy = SPI1RXB;                    //dummy read to drive ss high    
+    RA2PPS=0b000000;                    // RA2 is GPIO high
+}
+/*********************************************************************************/
+/*********************************************************************************/
+uint8_t check_cell_underV(uint16_t cellVoltage)
+{
+    for(uint8_t i=0;i<12;i++)
+    {
+        if((bmsState.cellVolt[i] < cellVoltage)&&
+           ((CELL_PRESENCE & (1<<i)) != 0))
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/*********************************************************************************/
+/*********************************************************************************/
+uint8_t check_cell_overV(uint16_t cellVoltage)
+{
+    for(uint8_t i=0;i<12;i++)
+    {
+        if((bmsState.cellVolt[i] > cellVoltage)&&
+           ((CELL_PRESENCE & (1<<i)) != 0))
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/*********************************************************************************/
+/*********************************************************************************/
+uint8_t check_overTemp(uint8_t temperature, uint8_t ntcToCheck)
+{
+    for(uint8_t i=0;i<12;i++)
+    {
+        if((bmsState.extDegree[i] > temperature)&&
+           ((ntcToCheck & (1<<i)) != 0))
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+/*********************************************************************************/
+/*********************************************************************************/
+uint16_t balance_pack(uint8_t cellCount)
+{
+    uint16_t cellsToCheck = CELL_PRESENCE;
+    uint16_t lastMeasured;
+    uint8_t posMeasured;
+    uint16_t cellsToBalance = 0;
+    
+    //--------------------------------------------------------------------------
+    // special case to stop balancing
+    //--------------------------------------------------------------------------
+    if(cellCount == 0)
+    {
+        isl_command(ISL_BALANCE_INHIBIT);    // disable balancing
+        return 0;
+    }
+    //--------------------------------------------------------------------------    
+    for(uint8_t cells=0;cells<cellCount;cells++)    // for nB cell to balance
+    {
+        lastMeasured = 0;
+        for(uint8_t i=0;i<12;i++)                   // check the highest to check
+        {
+            if((bmsState.cellVolt[i] > lastMeasured)&&
+               ((cellsToCheck & (1<<i)) != 0))
+            {
+                lastMeasured = bmsState.cellVolt[i];
+                posMeasured = i;
+            }
+        }
+        cellsToBalance |= (1 << posMeasured);
+        cellsToCheck = cellsToCheck & ~(1 << posMeasured);
+    }
+    //--------------------------------------------------------------------------    
+    isl_write(ISL_BALANCE_SET,1);   // balance in  manual mode
+    isl_write(ISL_BALANCE_STAT,cellsToBalance);    // set cells to balance
+    isl_command(ISL_BALANCE_ENABLE);    // activate balancing
+    return isl_read(ISL_CELL_IN_BALANCE);   // return balanced cells bits list
+}
+/*********************************************************************************/
+/*********************************************************************************/
+void balance_current(void)
+{
+    // TODO, depending on max cell voltage, reduce charger voltage to reduce current
+    
+}
+
+/*********************************************************************************/
+/*********************************************************************************/
 bmsFault FaultAnalyse(void)
 {
     uint16_t statFault;
@@ -155,28 +263,269 @@ bmsFault FaultAnalyse(void)
     bmsState.curFaultDetail = statFault;
     return bmsState.curFault;
 }
-
+/*********************************************************************************/
+/*********************************************************************************/
 smMain sm_execute_idle(void)
 {
-    if(bmsState.curFault != NO_FAULT)
+    if((bmsState.curFault != NO_FAULT)||        // BMS error (internal temp, OSC, ...)
+       (check_cell_underV(SL_DEAD_VOLTAGE))||   // lower than limit low
+       (check_overTemp(SL_HIGH_TEMP_ALL,0b1111))  // check the 4 NTC
+       )
     {
+        nSHDN = 0;                  // disable MOSFET
         return SM_ERROR_IDLE; 
     }
     //--------------------------------------------------------------
-    if(bmsState.battery_current > 100)
+    if(bmsState.battery_current > 50)
     {
-        isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3500)); // set limit for load
         return SM_LOAD; 
     }
     //--------------------------------------------------------------
-    if(bmsState.battery_current < -100)
+    if(bmsState.battery_current < -50)
     {
-        return SM_SLOW_CHARGE; 
+        return SM_SLOW_CHARGE_START; 
     }
     //--------------------------------------------------------------
     if(bmsState.charger_fast_present != 0)
     {
-        return SM_FAST_CHARGE;
+        return SM_FAST_CHARGE_START;
     }    
     return SM_IDLE;
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_error_idle(void)
+{
+    if(check_cell_underV(SL_DEAD_VOLTAGE))  // cell voltage too low
+    {
+        nSHDN = 0;                          // disable MOSFET
+        return SM_BATTERY_DEAD; 
+    }
+    //--------------------------------------------------------------
+    if(check_cell_underV(SL_LOW_VOLTAGE))
+    {
+        if(bmsState.charger_fast_present != 0)
+        {
+            led_display(LED_OFF);
+            return SM_FAST_CHARGE_START; 
+        }
+        if(bmsState.charger_slow_present)
+        {
+            led_display(LED_OFF);
+            return SM_SLOW_CHARGE_START; 
+        }
+        led_display(LED_UNDERVOLTAGE);
+        return SM_ERROR_IDLE;
+    }
+    //--------------------------------------------------------------
+    if(check_cell_overV(SL_HIGH_VOLTAGE))
+    {
+        // normally never arrive
+        led_display(LED_OVERVOLTAGE);
+        return SM_ERROR_IDLE;
+    }
+    //--------------------------------------------------------------
+    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    {
+        led_display(LED_TEMPHIGH);
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE;
+    }    
+    //--------------------------------------------------------------
+    if(bmsState.curFault != NO_FAULT)
+    {
+        // led BMS error -> to implement in detail
+        led_display(LED_BMS_ERROR);
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE;
+    }    
+    // led indication off
+    return SM_IDLE;     // no more error
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_load(void)
+{
+    if(check_cell_underV(SL_WARN_VOLTAGE))  // lower than warning limit
+    {
+        led_display(LED_WARN_LOW);
+        return SM_LOAD; 
+    }
+    //--------------------------------------------------------------
+    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    {
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE;
+    }   
+    //--------------------------------------------------------------
+    if(check_cell_underV(SL_LOW_VOLTAGE))  // lower than warning limit
+    {
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE; 
+    }
+    //--------------------------------------------------------------
+    // TODO -> check current too high for a loo long time
+    
+    
+    
+    //--------------------------------------------------------------
+    if(abs(bmsState.battery_current) < SL_CURRENT_NEAR_0)
+    {
+        return SM_IDLE;
+    }    
+    return SM_LOAD;
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_fast_charge_start(void)
+{
+    if(check_cell_underV(SL_DEAD_VOLTAGE))  // lower than dead cell limit
+    {
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE; 
+    }
+    //--------------------------------------------------------------
+    if(check_cell_underV(SL_LOW_VOLTAGE))  // lower than warning limit
+    {
+        bmsState.charger_voltage_to_set = SL_CHARGER_VOLTAGE;
+        bmsState.charger_current_to_set = SL_CHARGER_CURRENT_LOW;
+        return SM_FAST_CHARGE_LOW; 
+    }
+    bmsState.charger_current_to_set = SL_CHARGER_CURRENT_HIGH;
+    return SM_FAST_CHARGE_HIGH; 
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_fast_charge_low(void)
+{
+    //--------------------------------------------------------------
+    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    {
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE;
+    }   
+    //--------------------------------------------------------------
+    if(check_cell_underV(SL_LOW_VOLTAGE) == 0)  // no more low voltage cell
+    {
+        bmsState.charger_current_to_set = SL_CHARGER_CURRENT_HIGH;
+        return SM_FAST_CHARGE_HIGH; 
+    }
+    //--------------------------------------------------------------
+    if(check_cell_overV(SL_HIGH_VOLTAGE))  // one cell too high and one loo low -> pack dead
+    {
+        led_display(LED_BATTERY_DEAD);
+        nSHDN = 0;                          // disable MOSFET
+        return SM_BATTERY_DEAD; 
+    }
+    //--------------------------------------------------------------
+    if(bmsState.charger_fast_present == 0)  // no more charger connected
+    {
+        return SM_IDLE; 
+    }
+    return SM_FAST_CHARGE_LOW;
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_fast_charge_high(void)
+{
+    //--------------------------------------------------------------
+    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    {
+        balance_pack(0);                    // stop balance pack
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE;
+    }   
+    //--------------------------------------------------------------
+    if(check_cell_overV(SL_END_VOLTAGE))    // one cell at limit
+    {
+        led_display(LED_CHARGE_END);
+        balance_pack(0);                    // stop balance pack
+        nSHDN = 0;                          // disable MOSFET
+        return SM_FAST_CHARGE_STOP; 
+    }
+    //--------------------------------------------------------------
+    if(bmsState.charger_fast_present == 0)  // no more charger connected
+    {
+        balance_pack(0);        // stop balance pack
+        return SM_IDLE; 
+    }
+    return SM_FAST_CHARGE_HIGH;
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_fast_charge_stop(void)
+{
+    //--------------------------------------------------------------
+    if(bmsState.charger_fast_present == 0)  // no more charger connected
+    {
+        led_display(LED_OFF);
+        nSHDN = 1;                          // enable MOSFET
+        return SM_IDLE; 
+    }
+    return SM_FAST_CHARGE_STOP;
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_slow_charge_start(void)
+{
+    if(check_cell_underV(SL_DEAD_VOLTAGE))  // lower than dead cell limit
+    {
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE; 
+    }
+    //--------------------------------------------------------------
+    if(check_cell_underV(SL_LOW_VOLTAGE))  // lower than low limit
+    {
+        return SM_SLOW_CHARGE;              // could be changed
+    }
+    return SM_SLOW_CHARGE; 
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_slow_charge(void)
+{
+    //--------------------------------------------------------------
+    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    {
+        balance_pack(0);                    // stop balance pack
+        nSHDN = 0;                          // disable MOSFET
+        return SM_ERROR_IDLE;
+    }   
+    //--------------------------------------------------------------
+    if(check_cell_overV(SL_END_VOLTAGE))    // one cell at limit
+    {
+        led_display(LED_CHARGE_END);
+        balance_pack(0);                    // stop balance pack
+        nSHDN = 0;                          // disable MOSFET
+        return SM_SLOW_CHARGE_STOP;
+    }
+    //--------------------------------------------------------------
+     if(bmsState.battery_current < -SL_CURRENT_MAX_PACK)
+     {
+        led_display(LED_CURRENT_HIGH);
+        balance_pack(0);                    // stop balance pack
+        nSHDN = 0;                          // disable MOSFET
+        return SM_SLOW_CHARGE_STOP; 
+     }
+    //--------------------------------------------------------------
+    if(abs(bmsState.battery_current) < SL_CURRENT_NEAR_0)  // no more charger connected
+    {
+        balance_pack(0);                    // stop balance pack
+        nSHDN = 0;                          // disable MOSFET
+        return SM_SLOW_CHARGE_STOP; 
+    }
+    return SM_SLOW_CHARGE;
+}
+/*********************************************************************************/
+/*********************************************************************************/
+smMain sm_execute_slow_charge_stop(void)
+{
+    //--------------------------------------------------------------
+    // TODO, CHECK VOLTAGE ON OUTPUT REMOVED
+    {
+        led_display(LED_OFF);
+        nSHDN = 1;                          // enable MOSFET
+        return SM_IDLE; 
+    }
+    return SM_SLOW_CHARGE_STOP;
 }

@@ -14,6 +14,7 @@
 #define nDRDY LATBbits.LATB2
 #define CANRX LATBbits.LATB3
 #define CANTX LATBbits.LATB4
+#define FASTCHARGE LATBbits.LATB5   // (hardware rev.2)
 #define ICSPCL_EXT LATBbits.LATB6
 #define ICSPDAT_EXT LATBbits.LATB7
 

@@ -15,6 +15,7 @@
       <itemPath>isl94212regs.h</itemPath>
       <itemPath>adc.h</itemPath>
       <itemPath>can_highlevel.h</itemPath>
+      <itemPath>system_limits.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"

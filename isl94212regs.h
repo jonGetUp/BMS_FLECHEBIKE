@@ -102,6 +102,8 @@
 //some registers not used in standalone mode
 #define ISL_SLEEP          (((0x03 << 6) | (0x0A)) << 6)    ///< enter sleep mode
 //some registers not used in standalone mode
+#define ISL_BALANCE_ENABLE (((0x03 << 6) | (0x10)) << 6)    ///< enable balancing
+#define ISL_BALANCE_INHIBIT (((0x03 << 6) | (0x11)) << 6)    ///< disable balancing
 #define ISL_RESET          (((0x03 << 6) | (0x12)) << 6)    ///< reset all config
 //some registers not used 
 //--------------------------------------------------------------------------------

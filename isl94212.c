@@ -164,6 +164,7 @@ uint16_t isl_read(uint16_t regAddr)
 {
     volatile uint8_t dummy;
     uint16_t result;
+    RA5PPS=0b100000;                    // RA5 is the CS signal
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
@@ -188,6 +189,7 @@ uint16_t isl_read(uint16_t regAddr)
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
     result = (result << 8) | SPI1RXB;   // get 8 lsb       
+    RA5PPS=0b000000;                    // RA5 is GPIO high
     return result;        
 }
 
@@ -199,6 +201,7 @@ void isl_write(uint16_t regAddr, uint16_t data)
     volatile uint8_t dummy;
     uint32_t dataCompiled;
     
+    RA5PPS=0b100000;                    // RA5 is the CS signal
     regAddr = regAddr | 0x8000;         // set write bit    
     dataCompiled = ((uint32_t)regAddr << 8) | data;  // concat both params
 
@@ -220,6 +223,7 @@ void isl_write(uint16_t regAddr, uint16_t data)
     SPI1TXB=(dataCompiled >> 0);        // write lsb data
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
     dummy = SPI1RXB;                    //dummy read to drive ss high    
+    RA5PPS=0b000000;                    // RA5 is GPIO high
 }
 
 /********************************************************************************/
@@ -228,6 +232,7 @@ void isl_write(uint16_t regAddr, uint16_t data)
 void isl_command(uint16_t command)
 {
     volatile uint8_t dummy;
+    RA5PPS=0b100000;                    // RA5 is the CS signal
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
@@ -252,6 +257,7 @@ void isl_command(uint16_t command)
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
     dummy = SPI1RXB;                    // get 8 lsb       
+    RA5PPS=0b000000;                    // RA5 is GPIO high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     switch(command)                     // delay for command to execute
     {

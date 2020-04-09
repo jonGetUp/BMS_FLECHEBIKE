@@ -15,14 +15,35 @@
 #include "isl94212regs.h"
 #include "can_highlevel.h"
 
+#define CELL_PRESENCE   (0b111110011111)    // all except 5 and 6
+
 typedef enum
 {
     SM_IDLE,
-    SM_LOAD,
     SM_ERROR_IDLE,
-    SM_FAST_CHARGE,
-    SM_SLOW_CHARGE
+    SM_LOAD,
+    SM_FAST_CHARGE_START,
+    SM_FAST_CHARGE_LOW,
+    SM_FAST_CHARGE_HIGH,
+    SM_FAST_CHARGE_STOP,
+    SM_SLOW_CHARGE_START,
+    SM_SLOW_CHARGE,
+    SM_SLOW_CHARGE_STOP,
+    SM_BATTERY_DEAD
 }smMain;
+
+typedef enum
+{
+    LED_OFF=0,
+    LED_BATTERY_DEAD    = 0b11111110,
+    LED_UNDERVOLTAGE    = 0b10000001,
+    LED_OVERVOLTAGE     = 0b10000010,
+    LED_TEMPHIGH        = 0b10000100,
+    LED_BMS_ERROR       = 0b10000000,
+    LED_WARN_LOW        = 0b10001000,
+    LED_CHARGE_END      = 0b10101010,
+    LED_CURRENT_HIGH    = 0b00001111,
+}ledDisplay;
 
 typedef enum
 {
@@ -85,11 +106,16 @@ struct BMS_STATE
     //--------------------------------------------------------------------------
     int32_t             battery_current;        // current on battery in mA +/-
     //--------------------------------------------------------------------------
-    uint16_t            charger_voltage;        // voltage on charger
-    uint16_t            charger_current;        // current on charger
+    uint16_t            charger_voltage;        // voltage on charger (0.1V)
+    uint16_t            charger_current;        // current on charger (0.1A)
     ChargerStatus_t     charger_status;         // status of charger
     uint8_t             charger_fast_present;   // the fast charger is present
     uint8_t             charger_fast_timer;     // timer to detect
+    uint16_t            charger_current_to_set; // current to set on charger (0.1A)
+    uint16_t            charger_voltage_to_set; // voltage to set on charger (0.1V)
+    
+    //--------------------------------------------------------------------------
+    uint8_t             charger_slow_present;   // voltage on charger
 };
 
 extern struct BMS_STATE bmsState;
