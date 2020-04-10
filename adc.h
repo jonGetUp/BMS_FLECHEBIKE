@@ -12,6 +12,8 @@
 #ifndef __adc_H
 #define __isl94212_H
 
+#define ADC_CHANNEL_CURRENT 0
+#define ADC_CHANNEL_VOLTAGE 1
 
 /********************************************************************************/
 /**
@@ -24,11 +26,12 @@ void adc_init(void);
 /********************************************************************************/
 /**
  * \brief  Do an adc measure
-* This function execute an adc measure
+* This function execute an adc measure on selecte channel
+* \param channel The channel to measure
 * \return It returns the current measured on load +/- on mA
 */
 /********************************************************************************/
-int32_t adc_getOneMeasure(void);
+int32_t adc_getOneMeasure(uint8_t channel);
 
 
 #endif /* __adc_H */

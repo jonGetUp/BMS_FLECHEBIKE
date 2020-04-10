@@ -1,6 +1,5 @@
 /******************************************************************************/
 
-/* TODO Application specific user parameters used in user.c may go here */
 
 /******************************************************************************/
 /* User Function Prototypes                                                   */
@@ -8,11 +7,14 @@
 #ifndef __USER_H
 #define __USER_H
 #include "main.h"
-/* TODO User level functions prototypes (i.e. InitApp) go here */
 
 void InitApp(void);         /* I/O and Peripheral Initialization */
 
-void led_display(ledDisplay display);  //BD8388 send SPI led
+        // temperatures to check
+uint8_t check_overTemp(uint8_t mos_t, uint8_t bal_t, uint8_t pack_t, uint8_t internal_t);
+
+void led_display(ledDisplay display);  
+void led_display_charge(uint16_t packVoltage);
 
 bmsFault FaultAnalyse(void);
 smMain sm_execute_idle(void);

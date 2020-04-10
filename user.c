@@ -68,10 +68,15 @@ void InitApp(void)
     //  3    OUTPUT     SCLK clock to ISL94212INZ
     //  4    INPUT      MISO data from ISL94212INZ
     //  5    OUTPUT     MOSI data to ISL94212INZ
-    //  6    OUTPUT     /EN_Isense to MAX9918ASA
+    //  6    OUTPUT     /EN_Isense to MAX9918ASA (hardware rev.1)
+    //  6    INPUT      user BUTTON input (hardware rev.2)
     //  7    OUTPUT     EN_Vref enable reference voltage
     LATC = 0b01000100;
+#if PROTO_NUM == 1
     TRISC = 0x10;
+#elif PROTO_NUM == 2
+    TRISC = 0x50;
+#endif
     ANSELC = 0;
     //--------------------------------------------------------------------------        
     /*properly map pins for SPI communication (MASTER FULL DUPLEX )*/
@@ -114,6 +119,7 @@ void led_display(ledDisplay display)
 {
     volatile uint8_t dummy;
     
+    
     RA2PPS=0b100000;                    // RA2 is the CS signal
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
@@ -123,6 +129,29 @@ void led_display(ledDisplay display)
     dummy = SPI1RXB;                    //dummy read to drive ss high    
     RA2PPS=0b000000;                    // RA2 is GPIO high
 }
+/*********************************************************************************/
+/*********************************************************************************/
+void led_display_charge(uint16_t packVoltage)
+{
+    volatile uint8_t dummy;
+    uint8_t display = 0b11111111;       // default all led on
+    for(uint8_t i=0;i<8;i++)
+    {
+        if(packVoltage < SL_PACK[i])
+        {
+            display = display >> 1;
+        }
+    }    
+    RA2PPS=0b100000;                    // RA2 is the CS signal
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    while (SPI1CON2bits.BUSY){};        // check no pending communication
+    SPI1TCNT = 1;                       // bytes to send = 1
+    SPI1TXB=display;                    // write leds activity
+    while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    dummy = SPI1RXB;                    //dummy read to drive ss high    
+    RA2PPS=0b000000;                    // RA2 is GPIO high
+}
+
 /*********************************************************************************/
 /*********************************************************************************/
 uint8_t check_cell_underV(uint16_t cellVoltage)
@@ -155,18 +184,65 @@ uint8_t check_cell_overV(uint16_t cellVoltage)
 
 /*********************************************************************************/
 /*********************************************************************************/
-uint8_t check_overTemp(uint8_t temperature, uint8_t ntcToCheck)
+uint8_t check_overTemp(uint8_t mos_t, uint8_t bal_t, uint8_t pack_t, uint8_t internal_t)
 {
+    uint8_t retInfo=0;
+    //--------------------------------------------------------------------------
+    if(bmsState.extDegree[SL_TEMP_MOS_POS] > mos_t)
+    {
+        retInfo |= (1 << 1);
+    }
+    //--------------------------------------------------------------------------
+    if(bmsState.extDegree[SL_TEMP_BALANCE_POS] > bal_t)
+    {
+        retInfo |= (1 << 2);
+    }
+    //--------------------------------------------------------------------------
+    if((bmsState.extDegree[SL_TEMP_BATTH_POS] > pack_t)||
+       (bmsState.extDegree[SL_TEMP_BATTL_POS] > pack_t))
+    {
+        retInfo |= (1 << 3);
+    }
+    //--------------------------------------------------------------------------
+    if(bmsState.intDegree > internal_t)     // check internal temperature
+    {
+        retInfo |= (1 << 0);
+    }
+    return retInfo;
+}
+
+/*********************************************************************************/
+/*********************************************************************************/
+uint16_t get_higher_voltage(void)
+{
+    uint16_t higher = 0;
     for(uint8_t i=0;i<12;i++)
     {
-        if((bmsState.extDegree[i] > temperature)&&
-           ((ntcToCheck & (1<<i)) != 0))
+        if((bmsState.cellVolt[i] > higher)&&
+           ((CELL_PRESENCE & (1<<i)) != 0))
         {
-            return 1;
+            higher = bmsState.cellVolt[i];
         }
     }
-    return 0;
+    return higher;
 }
+
+/*********************************************************************************/
+/*********************************************************************************/
+uint16_t get_lower_voltage(void)
+{
+    uint16_t lower = 4200;      // max cell voltage
+    for(uint8_t i=0;i<12;i++)
+    {
+        if((bmsState.cellVolt[i] < lower)&&
+           ((CELL_PRESENCE & (1<<i)) != 0))
+        {
+            lower = bmsState.cellVolt[i];
+        }
+    }
+    return lower;
+}
+
 /*********************************************************************************/
 /*********************************************************************************/
 uint16_t balance_pack(uint8_t cellCount)
@@ -179,11 +255,30 @@ uint16_t balance_pack(uint8_t cellCount)
     //--------------------------------------------------------------------------
     // special case to stop balancing
     //--------------------------------------------------------------------------
-    if(cellCount == 0)
+    if(cellCount == 0)                      // user choice
     {
         isl_command(ISL_BALANCE_INHIBIT);    // disable balancing
         return 0;
     }
+    //--------------------------------------------------------------------------    
+    if((get_higher_voltage() - get_lower_voltage()) < SL_BALANCE_THRESHOLD)
+    {
+        isl_command(ISL_BALANCE_INHIBIT);    // disable balancing
+        return 0;
+    }        
+    //--------------------------------------------------------------------------    
+    // reduce cell balancing if temperature reach higher limit
+    // example limit @ cell / 2 for 10 degree below limit stop
+    //--------------------------------------------------------------------------    
+    if(check_overTemp(SL_TEMP_MOS_LIMIT,
+                      SL_TEMP_BALANCE_LIMIT - 10,
+                      SL_TEMP_BATT_LIMIT,
+                      SL_TEMP_INTERNAL_LIMIT))
+    {
+        cellCount = cellCount / 2;
+    }
+    //--------------------------------------------------------------------------    
+    // balancing cells
     //--------------------------------------------------------------------------    
     for(uint8_t cells=0;cells<cellCount;cells++)    // for nB cell to balance
     {
@@ -211,7 +306,8 @@ uint16_t balance_pack(uint8_t cellCount)
 void balance_current(void)
 {
     // TODO, depending on max cell voltage, reduce charger voltage to reduce current
-    
+    if(get_higher_voltage() )
+    {}
 }
 
 /*********************************************************************************/
@@ -269,7 +365,10 @@ smMain sm_execute_idle(void)
 {
     if((bmsState.curFault != NO_FAULT)||        // BMS error (internal temp, OSC, ...)
        (check_cell_underV(SL_DEAD_VOLTAGE))||   // lower than limit low
-       (check_overTemp(SL_HIGH_TEMP_ALL,0b1111))  // check the 4 NTC
+       (check_overTemp(SL_TEMP_MOS_LIMIT,
+                       SL_TEMP_BALANCE_LIMIT,
+                       SL_TEMP_BATT_LIMIT,
+                       SL_TEMP_INTERNAL_LIMIT))  
        )
     {
         nSHDN = 0;                  // disable MOSFET
@@ -296,6 +395,7 @@ smMain sm_execute_idle(void)
 /*********************************************************************************/
 smMain sm_execute_error_idle(void)
 {
+    uint8_t temp8;
     if(check_cell_underV(SL_DEAD_VOLTAGE))  // cell voltage too low
     {
         nSHDN = 0;                          // disable MOSFET
@@ -304,13 +404,16 @@ smMain sm_execute_error_idle(void)
     //--------------------------------------------------------------
     if(check_cell_underV(SL_LOW_VOLTAGE))
     {
+        nSHDN = 0;                          // disable MOSFET
         if(bmsState.charger_fast_present != 0)
         {
             led_display(LED_OFF);
+            nSHDN = 1;                      // enable MOSFET
             return SM_FAST_CHARGE_START; 
         }
         if(bmsState.charger_slow_present)
         {
+            nSHDN = 1;                      // enable MOSFET
             led_display(LED_OFF);
             return SM_SLOW_CHARGE_START; 
         }
@@ -325,22 +428,25 @@ smMain sm_execute_error_idle(void)
         return SM_ERROR_IDLE;
     }
     //--------------------------------------------------------------
-    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    if(temp8 = check_overTemp(SL_TEMP_MOS_LIMIT,
+                      SL_TEMP_BALANCE_LIMIT,
+                      SL_TEMP_BATT_LIMIT,
+                      SL_TEMP_INTERNAL_LIMIT))
     {
-        led_display(LED_TEMPHIGH);
+        led_display(LED_TEMPHIGH | temp8);
         nSHDN = 0;                          // disable MOSFET
         return SM_ERROR_IDLE;
     }    
     //--------------------------------------------------------------
     if(bmsState.curFault != NO_FAULT)
     {
-        // led BMS error -> to implement in detail
-        led_display(LED_BMS_ERROR);
+        // see datasheet isl94212 p.65 for details
+        led_display(LED_BMS_ERROR | (bmsState.curFaultDetail>>7));
         nSHDN = 0;                          // disable MOSFET
         return SM_ERROR_IDLE;
     }    
-    // led indication off
-    return SM_IDLE;     // no more error
+    led_display(LED_OFF);
+    return SM_IDLE;     // no more error they was previously
 }
 /*********************************************************************************/
 /*********************************************************************************/
@@ -352,7 +458,10 @@ smMain sm_execute_load(void)
         return SM_LOAD; 
     }
     //--------------------------------------------------------------
-    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    if(check_overTemp(SL_TEMP_MOS_LIMIT,
+                      SL_TEMP_BALANCE_LIMIT,
+                      SL_TEMP_BATT_LIMIT,
+                      SL_TEMP_INTERNAL_LIMIT))
     {
         nSHDN = 0;                          // disable MOSFET
         return SM_ERROR_IDLE;
@@ -364,7 +473,7 @@ smMain sm_execute_load(void)
         return SM_ERROR_IDLE; 
     }
     //--------------------------------------------------------------
-    // TODO -> check current too high for a loo long time
+    // TODO -> check current too high for a too long time
     
     
     
@@ -399,7 +508,10 @@ smMain sm_execute_fast_charge_start(void)
 smMain sm_execute_fast_charge_low(void)
 {
     //--------------------------------------------------------------
-    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    if(check_overTemp(SL_TEMP_MOS_LIMIT,
+                      SL_TEMP_BALANCE_LIMIT,
+                      SL_TEMP_BATT_LIMIT,
+                      SL_TEMP_INTERNAL_LIMIT))
     {
         nSHDN = 0;                          // disable MOSFET
         return SM_ERROR_IDLE;
@@ -429,7 +541,10 @@ smMain sm_execute_fast_charge_low(void)
 smMain sm_execute_fast_charge_high(void)
 {
     //--------------------------------------------------------------
-    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    if(check_overTemp(SL_TEMP_MOS_LIMIT,
+                      SL_TEMP_BALANCE_LIMIT,
+                      SL_TEMP_BATT_LIMIT,
+                      SL_TEMP_INTERNAL_LIMIT))  
     {
         balance_pack(0);                    // stop balance pack
         nSHDN = 0;                          // disable MOSFET
@@ -485,7 +600,10 @@ smMain sm_execute_slow_charge_start(void)
 smMain sm_execute_slow_charge(void)
 {
     //--------------------------------------------------------------
-    if(check_overTemp(SL_HIGH_TEMP_ALL,0b1111))
+    if(check_overTemp(SL_TEMP_MOS_LIMIT,
+                      SL_TEMP_BALANCE_LIMIT,
+                      SL_TEMP_BATT_LIMIT,
+                      SL_TEMP_INTERNAL_LIMIT))  
     {
         balance_pack(0);                    // stop balance pack
         nSHDN = 0;                          // disable MOSFET
@@ -521,7 +639,7 @@ smMain sm_execute_slow_charge(void)
 smMain sm_execute_slow_charge_stop(void)
 {
     //--------------------------------------------------------------
-    // TODO, CHECK VOLTAGE ON OUTPUT REMOVED
+    if(bmsState.charger_slow_present == 0)
     {
         led_display(LED_OFF);
         nSHDN = 1;                          // enable MOSFET

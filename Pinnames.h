@@ -24,6 +24,7 @@
 #define SCLK LATCbits.LATC3
 #define MISO LATCbits.LATC4
 #define MOSI LATCbits.LATC5
-#define nEN_Isense LATCbits.LATC6
+#define nEN_Isense LATCbits.LATC6   // proto 1
+#define BUTTON PORTCbits.RC6        // proto 2
 #define EN_Vref LATCbits.LATC7
 

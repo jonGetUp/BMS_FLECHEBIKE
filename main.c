@@ -53,6 +53,7 @@ struct BMS_STATE bmsState;
 struct CANMessage txMsg;
 
 uint8_t timeToBalance=0;
+uint8_t timeToVref=0;
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/    
@@ -61,6 +62,7 @@ void main(void)
     uint8_t i;
     int8_t retCode;
     uint16_t fault,temp16;
+    uint8_t btnPressed = 0;
     //--------------------------------------------------------------------------
     ConfigureOscillator();              // setup CPU at 64MHz
     InitApp();                          // initialize I/O ports
@@ -68,20 +70,25 @@ void main(void)
     CANSetMode(CAN_NORMAL_MODE);        // normal mode
     //--------------------------------------------------------------------------
     EN_Vref = 1;                        // enable voltage reference
+#if PROTO_NUM == 1    
     nEN_Isense = 0;                     // enable current measure
+#elif PROTO_NUM == 2
+#endif
     EN_ISL = 1;                         // enable battery manager
      __delay_ms(30);                    // 27.2 ms at least datasheet p.7
     //--------------------------------------------------------------------------
     isl_init();                         // init battery manager, scan all
     adc_init();                         // init the adc converter
-    bmsState.battery_current = adc_getOneMeasure();  // get one measure of battery
-    can_start();
+    bmsState.battery_current = adc_getOneMeasure(ADC_CHANNEL_CURRENT);  // get one measure of battery
+    CANInit();
+#if PROTO_NUM == 1
+    can_start();                        // always enable driver on proto 1
+#elif PROTO_NUM == 2
+    can_stop();                         // don't enable sender on proto 2 (receive always active)
+#endif    
+    can_stop();                         // don't 
     GIEH = 1;
     GIEL = 1;
-    txMsg.Address = 0x123;
-    txMsg.Ext = 1;
-    txMsg.NoOfBytes = 2;
-    txMsg.Remote = 0;
     //--------------------------------------------------------------------------
     bmsState.smMain = SM_IDLE;              // just powered on
     nSHDN = 1;                              // enable MOSFET
@@ -101,23 +108,49 @@ void main(void)
     while(1)
     {
         //----------------------------------------------------------------------
-        if(time10ms != 0)               // actions to be defined
+        if(time10ms != 0)               // actions to execute each 10ms
         {
             time10ms = 0;
-            bmsState.battery_current = adc_getOneMeasure();  // get one current measure of battery
+            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+#if PROTO_NUM == 2                  // button only exist in proto 2
+            if(BUTTON == 1)
+            {
+                btnPressed = 1;
+                led_display_charge(bmsState.batVolt);
+            }
+            else if(btnPressed == 1)
+            {
+                btnPressed = 0;
+                led_display(bmsState.ledDisplay);
+            }
+#endif
+            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+            bmsState.battery_current = adc_getOneMeasure(ADC_CHANNEL_CURRENT);  // get one current measure of battery
             if(bmsState.charger_fast_timer > 0)
             {
                 bmsState.charger_fast_timer--;
                 if(bmsState.charger_fast_timer == 0)
                 {
+                    #if PROTO_NUM == 2
+                        can_stop();             // disable sender on proto 2 (receive always active)
+                    #endif  
                     FASTCHARGE = 0;
                     bmsState.charger_fast_present = 0;
                 }
             }
+            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+            bmsState.external_voltage = adc_getOneMeasure(ADC_CHANNEL_VOLTAGE);  // get one voltage measure of charger
+            if(bmsState.external_voltage > 6000) // more than 6 volts (for example)
+            {
+               bmsState.charger_slow_present = 1; 
+            }
+            else
+            {
+               bmsState.charger_slow_present = 0; 
+            }
         }
-        // TODO check charger slow present with voltage measure on output
         //----------------------------------------------------------------------
-        if(time1s != 0)               // actions to be defined
+        if(time1s != 0)               // actions to execute each second
         {
             time1s = 0;
             // update cells voltages
@@ -144,7 +177,7 @@ void main(void)
                 (bmsState.smMain == SM_SLOW_CHARGE))
             {
                 timeToBalance++;
-                if(timeToBalance >= 4)
+                if(timeToBalance >= SL_TIME_TO_BALANCE)
                 {
                     timeToBalance = 0;
                     balance_pack(SL_CELLCOUNT_TO_BALANCE);  // number of cell to balance
@@ -154,8 +187,13 @@ void main(void)
                     }
                 }
             }
-            
-            // TODO, call sometime => isl_calc_vref_and_temp();
+            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+            timeToVref++;                   
+            if(timeToVref >= 60)            // each minutes
+            {
+                timeToVref = 0;
+                isl_calc_vref_and_temp();   // recalculate reference
+            }
         }    
         //----------------------------------------------------------------------
         if(islFault != 0)               // fault from ISL, must be cleared by ISL isr
@@ -174,6 +212,9 @@ void main(void)
             retCode = can_analyse_message();
             if(retCode != -1)   // fast charger present
             {
+                #if PROTO_NUM == 2
+                    can_start();             // enable sender on proto 2 (receive always active)
+                #endif  
                 FASTCHARGE = 1;
                 bmsState.charger_fast_present = 1;
                 bmsState.charger_fast_timer = 150;  // wait 1.5 second
@@ -227,7 +268,7 @@ void main(void)
             break;        
             // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
             case SM_BATTERY_DEAD: 
-                // actions to define
+                // TODO actions to define
                 bmsState.smMain = SM_BATTERY_DEAD;
             break;        
         }

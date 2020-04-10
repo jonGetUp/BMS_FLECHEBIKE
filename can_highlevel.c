@@ -44,7 +44,6 @@
 /********************************************************************************/
 void can_start(void)
 {
-    CANInit();
     CAN_POWERDOWN = 0;                  // enable can driver
 }
 

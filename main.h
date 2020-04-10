@@ -38,10 +38,10 @@ typedef enum
     LED_BATTERY_DEAD    = 0b11111110,
     LED_UNDERVOLTAGE    = 0b10000001,
     LED_OVERVOLTAGE     = 0b10000010,
-    LED_TEMPHIGH        = 0b10000100,
-    LED_BMS_ERROR       = 0b10000000,
-    LED_WARN_LOW        = 0b10001000,
-    LED_CHARGE_END      = 0b10101010,
+    LED_TEMPHIGH        = 0b11000000,   // takes 5 last bits for details
+    LED_BMS_ERROR       = 0b11100000,   // takes 4 last bits for details
+    LED_WARN_LOW        = 0b10000100,
+    LED_CHARGE_END      = 0b11111111,
     LED_CURRENT_HIGH    = 0b00001111,
 }ledDisplay;
 
@@ -49,7 +49,6 @@ typedef enum
 {
     NO_FAULT,
     OVERTEMP,
-    WAIT_TEMP_LOWERED,
     OVERVOLT,
     UNDERVOLT,
     OPENWIRE,
@@ -61,6 +60,7 @@ struct BMS_STATE
     smMain              smMain;                 // current state of BMS
     bmsFault            curFault;               // fault on system
     uint8_t             curFaultDetail;         // fault on system
+    uint8_t             ledDisplay;             // current led display (except button pressed)
     //--------------------------------------------------------------------------
     uint16_t            batVolt;                // battery voltage in mV
     uint16_t            cellVolt[12];           // each cell voltage in mV
@@ -116,6 +116,7 @@ struct BMS_STATE
     
     //--------------------------------------------------------------------------
     uint8_t             charger_slow_present;   // voltage on charger
+    uint16_t            external_voltage;       // voltage on load/charger
 };
 
 extern struct BMS_STATE bmsState;
