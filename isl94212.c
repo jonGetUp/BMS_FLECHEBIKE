@@ -118,6 +118,31 @@ void isl_init(void)
 }
 
 /********************************************************************************/
+/* Scan voltage and update                                                      */
+/********************************************************************************/
+void isl_scan_update_voltages(void)
+{
+    if(bmsState.balanceInWork == 1)         // if currently balancing
+    {
+        isl_command(ISL_BALANCE_INHIBIT);   // stop balancing
+        __delay_ms(10);                     // wait a moment before measure
+        isl_command(ISL_CMD_SCANVOLT);      // scan voltages
+        isl_command(ISL_BALANCE_ENABLE);    // re-enable balancing
+    }
+    else
+    {
+        isl_command(ISL_CMD_SCANVOLT);       // scan voltages
+    }
+    // update cells & pack voltages
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    bmsState.batVolt = isl_conv_vbat2mV(isl_read(ISL_VBATT));
+    for(uint8_t i=0;i<12;i++)
+    {
+       bmsState.cellVolt[i] = isl_conv_cell2mV(isl_read(ISL_VBATT + ((i+1) << 6))); 
+    }    
+}
+
+/********************************************************************************/
 /* Calculate right Vref and temperatures                                        */
 /********************************************************************************/
 void isl_calc_vref_and_temp(void)

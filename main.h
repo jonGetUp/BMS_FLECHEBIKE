@@ -15,7 +15,6 @@
 #include "isl94212regs.h"
 #include "can_highlevel.h"
 
-#define CELL_PRESENCE   (0b111110011111)    // all except 5 and 6
 
 typedef enum
 {
@@ -61,6 +60,7 @@ struct BMS_STATE
     bmsFault            curFault;               // fault on system
     uint8_t             curFaultDetail;         // fault on system
     uint8_t             ledDisplay;             // current led display (except button pressed)
+    uint8_t             balanceInWork;          // we are balancing
     //--------------------------------------------------------------------------
     uint16_t            batVolt;                // battery voltage in mV
     uint16_t            cellVolt[12];           // each cell voltage in mV

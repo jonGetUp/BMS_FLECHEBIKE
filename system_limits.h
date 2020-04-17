@@ -8,6 +8,9 @@
 #define __SYSTEM_LIMITS_H
 #include "main.h"
 
+#define CELL_PRESENCE   (0b111110011111)    // all except 5 and 6
+
+
 #define SL_DEAD_VOLTAGE     (3200)      // 3.2V is a voltage on dead cell
 #define SL_LOW_VOLTAGE      (3500)      // 3.5V is voltage require low charge current
 #define SL_WARN_VOLTAGE     (3600)      // 3.6V is voltage warning for load mode
@@ -35,7 +38,11 @@
 #define SL_TEMP_BATT_LIMIT      (50)    // limit temp for battery pack
 #define SL_TEMP_INTERNAL_LIMIT  (90)    // limit temp for battery pack
 
-// voltage table to display enery on pack (8 leds to 0 led)
+#define SL_SCAN_VOLTAGE_TIME    (4)     // rescan voltage each n seconds
+#define SL_SCAN_TEMP_TIME       (5)     // rescan temperatures each n seconds
+#define SL_SCAN_OPENWIRE_TIME   (20)    // rescan openwire problems
+
+// voltage table to display energy on pack (8 leds to 0 led)
 // TODO -> values to be defined seriously
 const uint16_t SL_PACK[] = {41200,40000,39000,38500,38200,37800,37000,36200};
 #endif

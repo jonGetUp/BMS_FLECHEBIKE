@@ -59,7 +59,7 @@ void adc_init(void)
 int32_t adc_getOneMeasure(uint8_t channel)
 {
 #if PROTO_NUM == 1
-    #define ADC_OFFSET_MV   (1600)  // offset for no current = 1.6V
+    #define ADC_OFFSET_MV   (1600L)  // offset for no current = 1.6V
     #define ADC_REF_MV      (3700)  // adc reference (vcc is about 3.6/3.7V)
     #define ADC_RESOL       (4096)  // adc resolution 12 bits
     #define GAIN            (32)    // MAX9918 gain   

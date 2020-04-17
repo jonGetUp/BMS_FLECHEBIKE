@@ -52,8 +52,10 @@ struct BMS_STATE bmsState;
 
 struct CANMessage txMsg;
 
-uint8_t timeToBalance=0;
-uint8_t timeToVref=0;
+uint8_t timeToBalance = 0;
+uint8_t timeToScanVoltage = 0;
+uint8_t timeToScanTemp = 0;
+uint8_t timeToScanOpenwire = 0;
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/    
@@ -86,24 +88,21 @@ void main(void)
 #elif PROTO_NUM == 2
     can_stop();                         // don't enable sender on proto 2 (receive always active)
 #endif    
-    can_stop();                         // don't 
     GIEH = 1;
     GIEL = 1;
     //--------------------------------------------------------------------------
     bmsState.smMain = SM_IDLE;              // just powered on
     nSHDN = 1;                              // enable MOSFET
 
-    isl_write(ISL_OVERVOLT_SET,isl_conv_mv2Cell(4210));
-    isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3000));
-    isl_write(ISL_EXTTEMP_SET,isl_conv_deg2raw(100));
-    // cell voltage are controlled with measures, values are stupid
+    // cell voltage and temp. are controlled with measures, values are stupid
+    isl_write(ISL_OVERVOLT_SET,isl_conv_mv2Cell(4500)); // clearly too high
+    isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3000));// clearly too low
+    isl_write(ISL_EXTTEMP_SET,isl_conv_deg2raw(100));   // clearly too high
     isl_write(ISL_CELLSETUP,0b000001100000);    // enable all cell except 5 & 6 for openwire
     isl_write(ISL_FAULTSETUP,
             ISL_FS_TEMP_I |                 // scan internal temperature
-            ISL_FS_SAMPLE_8 |               // 8 error to interrupt
-            6 << ISL_FS_INTERVAL_SHIFT);    // scan interval of 1 seconds
-    isl_write(ISL_DEVICESETUP,0x80);        // disable balance during voltage measure
-    isl_command(ISL_CMD_CONTINUOUS);        // scan continuous mode
+            ISL_FS_SAMPLE_2 |               // 2 errors to interrupt
+            0 << ISL_FS_INTERVAL_SHIFT);    // scan interval of 16ms but not used (manual))
     //--------------------------------------------------------------------------
     while(1)
     {
@@ -139,7 +138,11 @@ void main(void)
                 }
             }
             //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+#if PROTO_NUM == 2
             bmsState.external_voltage = adc_getOneMeasure(ADC_CHANNEL_VOLTAGE);  // get one voltage measure of charger
+#elif PROTO_NUM == 1
+            bmsState.external_voltage = 0;  // no measure of this voltage in rev.1
+#endif
             if(bmsState.external_voltage > 6000) // more than 6 volts (for example)
             {
                bmsState.charger_slow_present = 1; 
@@ -153,17 +156,26 @@ void main(void)
         if(time1s != 0)               // actions to execute each second
         {
             time1s = 0;
-            // update cells voltages
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-            for(i=0;i<12;i++)
+            //------------------------------------------------------------------
+            timeToScanVoltage++;
+            if(timeToScanVoltage >= SL_SCAN_VOLTAGE_TIME)  // need to scan voltages
             {
-               bmsState.cellVolt[i] = isl_conv_cell2mV(isl_read(ISL_VBATT + ((i+1) << 6))); 
+                timeToScanVoltage=0;
+                isl_scan_update_voltages();
             }
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-            bmsState.intDegree = (int16_t)(25 + ((bmsState.intTemp - 9180) / 31.9));
-            for(i=0;i<4;i++)
+            //------------------------------------------------------------------
+            timeToScanTemp++;
+            if(timeToScanTemp >= SL_SCAN_TEMP_TIME)  // need to scan temperatures
             {
-                bmsState.extDegree[i] = isl_conv_raw2deg(isl_read(ISL_INTTEMP + ((i+1) << 6))); 
+                timeToScanTemp = 0;
+                isl_calc_vref_and_temp();       // update all temperatures & correction
+            }
+            //------------------------------------------------------------------
+            timeToScanOpenwire++;
+            if(timeToScanOpenwire >= SL_SCAN_OPENWIRE_TIME)
+            {
+                timeToScanOpenwire = 0;
+                isl_command(ISL_CMD_SCANWIRES);    // scan for openwire problems
             }
             //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
             if((bmsState.smMain == SM_FAST_CHARGE_LOW)||
@@ -172,7 +184,7 @@ void main(void)
                 can_send_charger_consign(bmsState.charger_voltage_to_set,
                                          bmsState.charger_current_to_set,0);
             }
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+            //------------------------------------------------------------------
             if((bmsState.smMain == SM_FAST_CHARGE_HIGH)||
                 (bmsState.smMain == SM_SLOW_CHARGE))
             {
@@ -186,13 +198,6 @@ void main(void)
                         balance_current();    // control of cell rising voltage vs current
                     }
                 }
-            }
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-            timeToVref++;                   
-            if(timeToVref >= 60)            // each minutes
-            {
-                timeToVref = 0;
-                isl_calc_vref_and_temp();   // recalculate reference
             }
         }    
         //----------------------------------------------------------------------
@@ -219,7 +224,6 @@ void main(void)
                 bmsState.charger_fast_present = 1;
                 bmsState.charger_fast_timer = 150;  // wait 1.5 second
             }
-//        can_send_charger_consign(200, 10, 0); // 20V, 1A, on
         }
         //----------------------------------------------------------------------
         // state machine work

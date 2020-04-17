@@ -23,6 +23,13 @@ void isl_init(void);
 
 /********************************************************************************/
 /**
+ * \brief  Scan all voltages and update global values
+*/
+/********************************************************************************/
+void isl_scan_update_voltages(void);
+
+/********************************************************************************/
+/**
  * \brief  Calculate the reference voltage and temperatures
 * This function calculate the true reference voltage
 */

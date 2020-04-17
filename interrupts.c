@@ -39,9 +39,12 @@ void __interrupt(high_priority) high_isr(void)
     if((TMR0IE == 1) && (TMR0IF == 1))
     {
         TMR0IF = 0;                     // clear ISR flag
+        // caution, simple 16 bits TMR0 writing don't works
+        TMR0H = (65535L - 10000L) >> 8; // isr each 10ms
+        TMR0L = 65535L - 10000L;        // isr each 10ms
         time10ms = 1;
         counter10ms++;
-        if(counter10ms == 10)
+        if(counter10ms == 100)
         {
             counter10ms = 0;
             time1s = 1;

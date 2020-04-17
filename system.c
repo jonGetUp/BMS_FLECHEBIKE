@@ -25,4 +25,5 @@ oscillator configurations. */
 void ConfigureOscillator(void)
 {
     OSCCON1bits.NDIV=0b0000; //--> reset osc at 64MHz divided by 1 Fosc=16Mhz
+    
 }

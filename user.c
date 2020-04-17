@@ -103,7 +103,8 @@ void InitApp(void)
     T0CON0bits.EN = 1;                  // enable timer 0
     T0CON0bits.MD16 = 1;                // 16 bits timer
     T0CON1bits.CS = 2;                  // osc = Fosc/4 -> 16MHz
-    T0CON0bits.OUTPS = 15;              // divide by 16 -> 1MHz
+    T0CON1bits.CKPS = 4;                // divide by 16 -> 1MHz
+    T0CON0bits.OUTPS = 0;               // divide by 1 -> 1MHz
     TMR0 = 65535 - 10000;               // isr each 10ms
     TMR0IE = 1;                         // enable interrupts
     //--------------------------------------------------------------------------            
@@ -257,12 +258,14 @@ uint16_t balance_pack(uint8_t cellCount)
     //--------------------------------------------------------------------------
     if(cellCount == 0)                      // user choice
     {
+        bmsState.balanceInWork = 0;
         isl_command(ISL_BALANCE_INHIBIT);    // disable balancing
         return 0;
     }
     //--------------------------------------------------------------------------    
     if((get_higher_voltage() - get_lower_voltage()) < SL_BALANCE_THRESHOLD)
     {
+        bmsState.balanceInWork = 0;
         isl_command(ISL_BALANCE_INHIBIT);    // disable balancing
         return 0;
     }        
@@ -299,6 +302,7 @@ uint16_t balance_pack(uint8_t cellCount)
     isl_write(ISL_BALANCE_SET,1);   // balance in  manual mode
     isl_write(ISL_BALANCE_STAT,cellsToBalance);    // set cells to balance
     isl_command(ISL_BALANCE_ENABLE);    // activate balancing
+    bmsState.balanceInWork = 1;
     return isl_read(ISL_CELL_IN_BALANCE);   // return balanced cells bits list
 }
 /*********************************************************************************/
