@@ -56,6 +56,7 @@ uint8_t timeToBalance = 0;
 uint8_t timeToScanVoltage = 0;
 uint8_t timeToScanTemp = 0;
 uint8_t timeToScanOpenwire = 0;
+uint16_t simulated_voltage_cell0=3900;
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/    
@@ -162,6 +163,9 @@ void main(void)
             {
                 timeToScanVoltage=0;
                 isl_scan_update_voltages();
+#if PROTO_DEBUG == 1                
+                bmsState.cellVolt[0] = simulated_voltage_cell0;
+#endif
             }
             //------------------------------------------------------------------
             timeToScanTemp++;

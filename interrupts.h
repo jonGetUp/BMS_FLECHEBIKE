@@ -9,6 +9,6 @@ extern uint8_t islFault;
 extern uint8_t batFault;
 extern uint8_t time10ms;
 extern uint8_t time1s;
-
+extern uint8_t time10msOverCurrent;
 //void __interrupt(high_priority) high_isr(void);
 //void __interrupt(low_priority) low_isr(void);

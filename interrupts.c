@@ -22,6 +22,7 @@
 #include "Pinnames.h"    /*header where all pin name are defined as in BMS plan*/
 
 uint8_t time10ms = 0;
+uint8_t time10msOverCurrent = 0;
 uint8_t time1s = 0;
 uint8_t islFault = 0;
 uint8_t batFault = 0;
@@ -43,6 +44,7 @@ void __interrupt(high_priority) high_isr(void)
         TMR0H = (65535L - 10000L) >> 8; // isr each 10ms
         TMR0L = 65535L - 10000L;        // isr each 10ms
         time10ms = 1;
+        time10msOverCurrent = 1;
         counter10ms++;
         if(counter10ms == 100)
         {

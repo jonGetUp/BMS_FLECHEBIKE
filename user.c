@@ -23,6 +23,8 @@
 #include "isl94212regs.h"
 #include "isl94212.h"
 #include "system_limits.h"
+#include "interrupts.h"
+
 /******************************************************************************/
 /* User Functions                                                             */
 /******************************************************************************/
@@ -359,16 +361,48 @@ bmsFault FaultAnalyse(void)
         return bmsState.curFault;
     }
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    if(statFault == 0)             // just ISR because command of mosfet
+    {
+        bmsState.curFault = NO_FAULT;
+        return NO_FAULT;
+    }
     bmsState.curFault = OTHER_FAULT;
     bmsState.curFaultDetail = statFault;
     return bmsState.curFault;
 }
+
+/*********************************************************************************/
+/*********************************************************************************/
+uint8_t current_too_high_too_long(int32_t limitCurrent, uint16_t limitTime)
+{
+    static uint16_t timeCount = 0;
+    //
+    if(time10msOverCurrent != 0)    // 10 ms elapsed
+    {
+        time10msOverCurrent = 0;
+        if(bmsState.battery_current > limitCurrent) // too much current
+        {
+            timeCount++;
+            if(timeCount > limitTime)           // during too long time
+            {
+                timeCount = 0;
+                return 1;
+            }
+        }
+        else
+        {
+            timeCount = 0;
+        }
+    }
+    return 0;
+}
+
 /*********************************************************************************/
 /*********************************************************************************/
 smMain sm_execute_idle(void)
 {
     if((bmsState.curFault != NO_FAULT)||        // BMS error (internal temp, OSC, ...)
-       (check_cell_underV(SL_DEAD_VOLTAGE))||   // lower than limit low
+       (check_cell_underV(SL_LOW_VOLTAGE))||   // lower than limit low
        (check_overTemp(SL_TEMP_MOS_LIMIT,
                        SL_TEMP_BALANCE_LIMIT,
                        SL_TEMP_BATT_LIMIT,
@@ -379,12 +413,12 @@ smMain sm_execute_idle(void)
         return SM_ERROR_IDLE; 
     }
     //--------------------------------------------------------------
-    if(bmsState.battery_current > 50)
+    if(bmsState.battery_current > SL__CURRENT_FOR_LOAD)
     {
         return SM_LOAD; 
     }
     //--------------------------------------------------------------
-    if(bmsState.battery_current < -50)
+    if(bmsState.battery_current < -SL_CURRENT_FOR_CHARGE)
     {
         return SM_SLOW_CHARGE_START; 
     }
@@ -477,10 +511,12 @@ smMain sm_execute_load(void)
         return SM_ERROR_IDLE; 
     }
     //--------------------------------------------------------------
-    // TODO -> check current too high for a too long time
-    
-    
-    
+    if(current_too_high_too_long(SL_LOAD_MAX_CURRENT, SL_LOAD_MAX_TIME))
+    {
+        nSHDN = 0;                          // disable MOSFET
+        __delay_ms(2000);                   // wait 2 seconds (for example)
+        nSHDN = 1;                          // enable MOSFET
+    }    
     //--------------------------------------------------------------
     if(abs(bmsState.battery_current) < SL_CURRENT_NEAR_0)
     {

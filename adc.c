@@ -23,10 +23,10 @@
 
 #include <stdint.h>         /* For uint8_t definition */
 #include <stdbool.h>        /* For true/false definition */
-
 #endif
 #include "main.h"
 #include "adc.h"
+#include "system_limits.h"
 
 /********************************************************************************/
 /* inits the ADC converter                                                      */
@@ -52,7 +52,7 @@ void adc_init(void)
     #error "Model of hardrare not defined ! "
 #endif
 }
-
+int32_t simulated_current = 0;  // to change with debugger for tests !
 /********************************************************************************/
 /* Do one measure                                                               */
 /********************************************************************************/
@@ -60,7 +60,7 @@ int32_t adc_getOneMeasure(uint8_t channel)
 {
 #if PROTO_NUM == 1
     #define ADC_OFFSET_MV   (1600L)  // offset for no current = 1.6V
-    #define ADC_REF_MV      (3700)  // adc reference (vcc is about 3.6/3.7V)
+    #define ADC_REF_MV      (3700)  // adc reference (vcc is from 3.5 to 4.2V unusable)
     #define ADC_RESOL       (4096)  // adc resolution 12 bits
     #define GAIN            (32)    // MAX9918 gain   
     #define INV_SHUNT       (1000)  // 1/shunt resistor
@@ -83,6 +83,7 @@ int32_t adc_getOneMeasure(uint8_t channel)
     //--------------------------------------------------------------------------
     if(channel == ADC_CHANNEL_CURRENT)      // current calculation
     {
+#if PROTO_DEBUG == 0        
         if(adValmV > ADC_OFFSET_MV)   // current flow from battery to motor
         {
             temp = adValmV - ADC_OFFSET_MV;     // positive current
@@ -92,6 +93,9 @@ int32_t adc_getOneMeasure(uint8_t channel)
             temp = -(ADC_OFFSET_MV - adValmV);  // negative current
         }
         temp = (temp * INV_SHUNT) / GAIN;       // real current in mA
+#else
+        return simulated_current;  
+#endif
     }
     //--------------------------------------------------------------------------
     if(channel == ADC_CHANNEL_VOLTAGE)       // voltage calculation (8.9 divisor)
