@@ -540,6 +540,7 @@ smMain sm_execute_fast_charge_start(void)
         bmsState.charger_current_to_set = SL_CHARGER_CURRENT_LOW;
         return SM_FAST_CHARGE_LOW; 
     }
+    bmsState.charger_voltage_to_set = SL_CHARGER_VOLTAGE;
     bmsState.charger_current_to_set = SL_CHARGER_CURRENT_HIGH;
     return SM_FAST_CHARGE_HIGH; 
 }

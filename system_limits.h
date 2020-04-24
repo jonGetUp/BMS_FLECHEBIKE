@@ -25,7 +25,7 @@
 #define SL_HIGH_VOLTAGE     (4210)      // 4.21 V is voltage too high on cell
 
 #define SL_CHARGER_CURRENT_LOW  (10)    // 1A for test
-#define SL_CHARGER_CURRENT_HIGH (50)    // 5A for test
+#define SL_CHARGER_CURRENT_HIGH (10)    // 1A for test
 #define SL_CHARGER_VOLTAGE      (420)   // 42V 
 
 #define SL_CELLCOUNT_TO_BALANCE (3)     // 3 higher cells are balanced

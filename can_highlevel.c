@@ -82,7 +82,7 @@ void can_send_charger_consign(uint16_t maxVoltage, uint16_t maxCurrent, uint8_t 
      }
      txMsg.Priority = 1;
      txMsg.Remote = 0;
-     CANPut(txMsg);
+// TODO test it really     CANPut(txMsg);
 }
 
 /********************************************************************************/

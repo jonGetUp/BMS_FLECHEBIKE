@@ -99,7 +99,7 @@ void main(void)
     isl_write(ISL_OVERVOLT_SET,isl_conv_mv2Cell(4500)); // clearly too high
     isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3000));// clearly too low
     isl_write(ISL_EXTTEMP_SET,isl_conv_deg2raw(100));   // clearly too high
-    isl_write(ISL_CELLSETUP,0b000001100000);    // enable all cell except 5 & 6 for openwire
+    isl_write(ISL_CELLSETUP,(~CELL_PRESENCE)&0x3FF);    // enable all cell except 5 & 6 for openwire
     isl_write(ISL_FAULTSETUP,
             ISL_FS_TEMP_I |                 // scan internal temperature
             ISL_FS_SAMPLE_2 |               // 2 errors to interrupt
@@ -163,9 +163,9 @@ void main(void)
             {
                 timeToScanVoltage=0;
                 isl_scan_update_voltages();
-#if PROTO_DEBUG == 1                
-                bmsState.cellVolt[0] = simulated_voltage_cell0;
-#endif
+//#if PROTO_DEBUG == 1                
+//                bmsState.cellVolt[0] = simulated_voltage_cell0;
+//#endif
             }
             //------------------------------------------------------------------
             timeToScanTemp++;
