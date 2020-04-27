@@ -312,8 +312,10 @@ uint16_t balance_pack(uint8_t cellCount)
 void balance_current(void)
 {
     // TODO, depending on max cell voltage, reduce charger voltage to reduce current
-    if(get_higher_voltage() )
-    {}
+    if(get_higher_voltage() > SL_VOLTAGE_TO_LIMIT_CURRENT)
+    {
+        bmsState.charger_voltage_to_set = bmsState.charger_voltage_to_set - 1; // reduce of 100mV
+    }
 }
 
 /*********************************************************************************/
