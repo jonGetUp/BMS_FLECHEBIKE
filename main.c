@@ -52,7 +52,8 @@ struct BMS_STATE bmsState;
 
 struct CANMessage txMsg;
 
-uint8_t timeToBalance = 0;
+uint8_t timeToBalanceCell = 0;
+uint8_t timeToBalanceVoltage = 0;
 uint8_t timeToScanVoltage = 0;
 uint8_t timeToScanTemp = 0;
 uint8_t timeToScanOpenwire = 0;
@@ -192,15 +193,22 @@ void main(void)
             if((bmsState.smMain == SM_FAST_CHARGE_HIGH)||
                 (bmsState.smMain == SM_SLOW_CHARGE))
             {
-                timeToBalance++;
-                if(timeToBalance >= SL_TIME_TO_BALANCE)
+                timeToBalanceCell++;
+                if(timeToBalanceCell >= SL_TIME_TO_BALANCE_CELL)
                 {
-                    timeToBalance = 0;
+                    timeToBalanceCell = 0;
                     balance_pack(SL_CELLCOUNT_TO_BALANCE);  // number of cell to balance
                     if(bmsState.smMain == SM_FAST_CHARGE_HIGH)
                     {
-                        balance_current();    // control of cell rising voltage vs current
+                        
                     }
+                }
+                timeToBalanceVoltage++;
+                if((timeToBalanceVoltage >= SL_TIME_TO_BALANCE_VOLTAGE)&&
+                        (bmsState.smMain == SM_FAST_CHARGE_HIGH))
+                {
+                    timeToBalanceVoltage = 0;
+                    balance_current();    // control of cell rising voltage vs current
                 }
             }
         }    

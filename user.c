@@ -468,10 +468,10 @@ smMain sm_execute_error_idle(void)
         return SM_ERROR_IDLE;
     }
     //--------------------------------------------------------------
-    if(temp8 = check_overTemp(SL_TEMP_MOS_LIMIT,
-                      SL_TEMP_BALANCE_LIMIT,
-                      SL_TEMP_BATT_LIMIT,
-                      SL_TEMP_INTERNAL_LIMIT))
+    if(temp8 = check_overTemp(SL_TEMP_MOS_LIMIT - SL_TEMP_HYSTERESIS,
+                      SL_TEMP_BALANCE_LIMIT - SL_TEMP_HYSTERESIS,
+                      SL_TEMP_BATT_LIMIT - SL_TEMP_HYSTERESIS,
+                      SL_TEMP_INTERNAL_LIMIT - SL_TEMP_HYSTERESIS))
     {
         led_display(LED_TEMPHIGH | temp8);
         nSHDN = 0;                          // disable MOSFET
@@ -566,7 +566,7 @@ smMain sm_execute_fast_charge_low(void)
         return SM_FAST_CHARGE_HIGH; 
     }
     //--------------------------------------------------------------
-    if(check_cell_overV(SL_HIGH_VOLTAGE))  // one cell too high and one loo low -> pack dead
+    if(check_cell_overV(SL_END_VOLTAGE))  // one cell too high and one loo low -> pack dead
     {
         led_display(LED_BATTERY_DEAD);
         nSHDN = 0;                          // disable MOSFET

@@ -21,15 +21,16 @@
 #define SL_DEAD_VOLTAGE     (3200)      // 3.2V is a voltage on dead cell
 #define SL_LOW_VOLTAGE      (3500)      // 3.5V is voltage require low charge current
 #define SL_WARN_VOLTAGE     (3600)      // 3.6V is voltage warning for load mode
-#define SL_END_VOLTAGE      (4198)      // 4.19 V is voltage for end of charge
-#define SL_HIGH_VOLTAGE     (4210)      // 4.21 V is voltage too high on cell
+#define SL_END_VOLTAGE      (4198)      // 4.198 V is voltage for end of charge
+#define SL_HIGH_VOLTAGE     (4210)      // 4.21 V is voltage too high on cell (normally never)
 
 #define SL_CHARGER_CURRENT_LOW  (10)    // 1A for test
 #define SL_CHARGER_CURRENT_HIGH (10)    // 1A for test
 #define SL_CHARGER_VOLTAGE      (410)   // 41V 
-#define SL_VOLTAGE_TO_LIMIT_CURRENT (4100) // 4.1V on one cell for example
+#define SL_VOLTAGE_TO_LIMIT_CURRENT (4100) // voltage on one cell to reduce charger voltage
 #define SL_CELLCOUNT_TO_BALANCE (3)     // 3 higher cells are balanced
-#define SL_TIME_TO_BALANCE      (4)     // do a balance each 4 seconds
+#define SL_TIME_TO_BALANCE_CELL (4)     // do a cell balance each 4 seconds
+#define SL_TIME_TO_BALANCE_VOLTAGE (8)     // do a charger voltage reduction each ...
 #define SL_BALANCE_THRESHOLD    (15)    // don't balance if max-min < threshold (15mV)
 
 #define SL_TEMP_MOS_POS         (0)     // position of mos temperature NTC
@@ -41,6 +42,7 @@
 #define SL_TEMP_BALANCE_LIMIT   (70)    // limit temp for shunt resistors
 #define SL_TEMP_BATT_LIMIT      (50)    // limit temp for battery pack
 #define SL_TEMP_INTERNAL_LIMIT  (90)    // limit temp for battery pack
+#define SL_TEMP_HYSTERESIS      (5)     // 5 degree lower to be ok again
 
 #define SL_SCAN_VOLTAGE_TIME    (4)     // rescan voltage each n seconds
 #define SL_SCAN_TEMP_TIME       (5)     // rescan temperatures each n seconds
