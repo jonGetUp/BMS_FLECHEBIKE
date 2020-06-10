@@ -92,6 +92,8 @@ void isl_init(void)
     {
        bmsState.cellVolt[i] = isl_conv_cell2mV(isl_read(ISL_VBATT + ((i+1) << 6))); 
     }
+    
+    
     bmsState.fault_overvoltage = isl_read(ISL_OVERVOLT_F);
     bmsState.fault_undervoltage = isl_read(ISL_UNDERVOLT_F);
     bmsState.fault_openwire =  isl_read(ISL_OPENWIRE_F);
@@ -110,6 +112,7 @@ void isl_init(void)
     bmsState.device_setup.Reg = isl_read(ISL_DEVICESETUP);
     bmsState.intTemp_limit = isl_read(ISL_INTTEMP_LIMIT);
     bmsState.trimVolt = isl_read(ISL_TRIM_VOLT);
+
     for(i=0;i<12;i++)
     {
        bmsState.cell_balance[i] = isl_read(ISL_BALANCE_BASE + (((i*2)+1) << 6)); 
@@ -117,6 +120,17 @@ void isl_init(void)
        bmsState.cell_balance[i] |= isl_read(ISL_BALANCE_BASE + ((i*2) << 6)); 
     }    
     bmsState.cell_in_balance = isl_read(ISL_CELL_IN_BALANCE);    
+    
+        isl_command(ISL_CMD_SCANVOLT);      // scan all voltages
+    bmsState.serialNumber = isl_read(ISL_SERIAL_NR1);
+    bmsState.serialNumber = bmsState.serialNumber << 14;
+    bmsState.serialNumber |= isl_read(ISL_SERIAL_NR2);
+    bmsState.batVolt = isl_conv_vbat2mV(isl_read(ISL_VBATT));
+    for(i=0;i<12;i++)
+    {
+       bmsState.cellVolt[i] = isl_conv_cell2mV(isl_read(ISL_VBATT + ((i+1) << 6))); 
+    }    
+    
     //--------------------------------------------------------------------------
 }
 
@@ -192,32 +206,40 @@ uint16_t isl_read(uint16_t regAddr)
 {
     volatile uint8_t dummy;
     uint16_t result;
-    RA5PPS=0b100000;                    // RA5 is the CS signal
+//    RA5PPS=0b100000;                    // RA5 is the CS signal
+    LATA5 = 0;
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(regAddr >> 8);             // write msb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
+    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(regAddr & 0xFF);           // write lsb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
+    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
+    LATA5 = 0;
     result = SPI1RXB;                   // get 6 useful msb
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
     result = (result << 8) | SPI1RXB;   // get 8 lsb       
-    RA5PPS=0b000000;                    // RA5 is GPIO high
+//    RA5PPS=0b000000;                    // RA5 is GPIO high
     return result;        
 }
 
@@ -229,7 +251,8 @@ void isl_write(uint16_t regAddr, uint16_t data)
     volatile uint8_t dummy;
     uint32_t dataCompiled;
     
-    RA5PPS=0b100000;                    // RA5 is the CS signal
+//    RA5PPS=0b100000;                    // RA5 is the CS signal
+    LATA5 = 0;
     regAddr = regAddr | 0x8000;         // set write bit    
     dataCompiled = ((uint32_t)regAddr << 8) | data;  // concat both params
 
@@ -238,20 +261,25 @@ void isl_write(uint16_t regAddr, uint16_t data)
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(dataCompiled >> 16);       // write msb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    dummy = SPI1RXB;                    //dummy read to drive ss high    
+     LATA5 = 1;
+    LATA5 = 0;
+   dummy = SPI1RXB;                    //dummy read to drive ss high    
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(dataCompiled >> 8);        // write lsb address with data
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    dummy = SPI1RXB;                    //dummy read to drive ss high    
+     LATA5 = 1;
+    LATA5 = 0;
+   dummy = SPI1RXB;                    //dummy read to drive ss high    
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(dataCompiled >> 0);        // write lsb data
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
     dummy = SPI1RXB;                    //dummy read to drive ss high    
-    RA5PPS=0b000000;                    // RA5 is GPIO high
+//    RA5PPS=0b000000;                    // RA5 is GPIO high
 }
 
 /********************************************************************************/
@@ -260,32 +288,41 @@ void isl_write(uint16_t regAddr, uint16_t data)
 void isl_command(uint16_t command)
 {
     volatile uint8_t dummy;
-    RA5PPS=0b100000;                    // RA5 is the CS signal
+//    RA5PPS=0b100000;                    // RA5 is the CS signal
+    LATA5 = 0;
+    
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(command >> 8);             // write msb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
+    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(command & 0xFF);           // write lsb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
+    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
+    LATA5 = 0;
     dummy = SPI1RXB;                    // get 6 useful msb
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
+    LATA5 = 1;
     dummy = SPI1RXB;                    // get 8 lsb       
-    RA5PPS=0b000000;                    // RA5 is GPIO high
+//    RA5PPS=0b000000;                    // RA5 is GPIO high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     switch(command)                     // delay for command to execute
     {

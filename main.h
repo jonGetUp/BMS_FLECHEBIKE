@@ -34,15 +34,20 @@ typedef enum
 typedef enum
 {
     LED_OFF=0,
-    LED_BATTERY_DEAD    = 0b11111110,
-    LED_UNDERVOLTAGE    = 0b10000001,
-    LED_OVERVOLTAGE     = 0b10000010,
-    LED_TEMPHIGH        = 0b11000000,   // takes 5 last bits for details
-    LED_BMS_ERROR       = 0b11100000,   // takes 4 last bits for details
-    LED_WARN_LOW        = 0b10000100,
-    LED_CHARGE_END      = 0b11111111,
-    LED_CURRENT_HIGH    = 0b00001111,
+    LED_CHARGE,
+    LED_BATTERY_DEAD,
+    LED_UNDERVOLTAGE,
+    LED_OVERVOLTAGE,
+    LED_TEMPHIGH,
+    LED_BMS_ERROR,
+    LED_WARN_LOW,
+    LED_CHARGE_END,
+    LED_CURRENT_HIGH,
 }ledDisplay;
+
+#define SET_LED_GREEN   0x40
+#define SET_LED_RED     0x20
+#define SET_LED_OFF     0x00
 
 typedef enum
 {

@@ -52,7 +52,7 @@ void can_start(void)
 /********************************************************************************/
 void can_stop(void)
 {
-    CAN_POWERDOWN = 1;                  // disable can driver
+  //  CAN_POWERDOWN = 1;                  // disable can driver, don't work
 }
 
 /********************************************************************************/

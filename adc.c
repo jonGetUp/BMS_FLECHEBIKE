@@ -65,7 +65,7 @@ int32_t adc_getOneMeasure(uint8_t channel)
     #define GAIN            (32)    // MAX9918 gain   
     #define INV_SHUNT       (1000)  // 1/shunt resistor
 #elif PROTO_NUM == 2
-    #define ADC_OFFSET_MV   (2048)  // offset for no current = 2.048V
+    #define ADC_OFFSET_MV   (2048L)  // offset for no current = 2.048V
     #define ADC_REF_MV      (4096)  // adc reference external (4.096V)
     #define ADC_RESOL       (4096)  // adc resolution 12 bits
     #define GAIN            (32)    // MAX9918 gain   
@@ -93,6 +93,7 @@ int32_t adc_getOneMeasure(uint8_t channel)
             temp = -(ADC_OFFSET_MV - adValmV);  // negative current
         }
         temp = (temp * INV_SHUNT) / GAIN;       // real current in mA
+        temp = temp - SL_ZERO_CURRENT_OFFSET;
 #else
         return simulated_current;  
 #endif
@@ -100,7 +101,7 @@ int32_t adc_getOneMeasure(uint8_t channel)
     //--------------------------------------------------------------------------
     if(channel == ADC_CHANNEL_VOLTAGE)       // voltage calculation (8.9 divisor)
     {
-        temp = (int32_t)(adValmV * 8.9);               // divisor 620k - 5.9Meg
+        temp = (int32_t)(adValmV * 10.51);               // divisor 620k - 5.9Meg
     }
     return temp;
 }

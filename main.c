@@ -44,7 +44,7 @@
 #include "can.h"
 #include "adc.h"
 #include "can_highlevel.h"
-
+#include "user.h"
 /******************************************************************************/
 /* User Global Variable Declaration                                           */
 /******************************************************************************/
@@ -58,6 +58,7 @@ uint8_t timeToScanVoltage = 0;
 uint8_t timeToScanTemp = 0;
 uint8_t timeToScanOpenwire = 0;
 uint16_t simulated_voltage_cell0=3900;
+uint8_t time50ms=0;
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/    
@@ -82,16 +83,19 @@ void main(void)
      __delay_ms(30);                    // 27.2 ms at least datasheet p.7
     //--------------------------------------------------------------------------
     isl_init();                         // init battery manager, scan all
+    isl_scan_update_voltages();   
+ 
     adc_init();                         // init the adc converter
     bmsState.battery_current = adc_getOneMeasure(ADC_CHANNEL_CURRENT);  // get one measure of battery
-    CANInit();
 #if PROTO_NUM == 1
     can_start();                        // always enable driver on proto 1
 #elif PROTO_NUM == 2
+    can_start();
     can_stop();                         // don't enable sender on proto 2 (receive always active)
 #endif    
     GIEH = 1;
     GIEL = 1;
+ isl_scan_update_voltages();    
     //--------------------------------------------------------------------------
     bmsState.smMain = SM_IDLE;              // just powered on
     nSHDN = 1;                              // enable MOSFET
@@ -106,23 +110,38 @@ void main(void)
             ISL_FS_SAMPLE_2 |               // 2 errors to interrupt
             0 << ISL_FS_INTERVAL_SHIFT);    // scan interval of 16ms but not used (manual))
     //--------------------------------------------------------------------------
+ isl_scan_update_voltages();    
     while(1)
     {
         //----------------------------------------------------------------------
         if(time10ms != 0)               // actions to execute each 10ms
         {
             time10ms = 0;
+            time50ms++;
+            if(time50ms == 5)
+            {
+                time50ms = 0;
+                if((bmsState.smMain == SM_FAST_CHARGE_START)||
+                (bmsState.smMain == SM_FAST_CHARGE_LOW)||
+                (bmsState.smMain == SM_FAST_CHARGE_HIGH)||
+                (bmsState.smMain == SM_FAST_CHARGE_STOP)||
+                (bmsState.smMain == SM_SLOW_CHARGE_START)||
+                (bmsState.smMain == SM_SLOW_CHARGE)||
+                (bmsState.smMain == SM_SLOW_CHARGE_STOP))
+                {
+                    ledUpdate(LED_CHARGE);
+                }
+            }
             //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 #if PROTO_NUM == 2                  // button only exist in proto 2
             if(BUTTON == 1)
             {
                 btnPressed = 1;
-                led_display_charge(bmsState.batVolt);
+                ledUpdate(LED_CHARGE);
             }
             else if(btnPressed == 1)
             {
                 btnPressed = 0;
-                led_display(bmsState.ledDisplay);
             }
 #endif
             //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -147,11 +166,11 @@ void main(void)
 #endif
             if(bmsState.external_voltage > 6000) // more than 6 volts (for example)
             {
-               bmsState.charger_slow_present = 1; 
+ //TODO consider this only when mosfet are off              bmsState.charger_slow_present = 1; 
             }
             else
             {
-               bmsState.charger_slow_present = 0; 
+ //TODO consider this only when mosfet are off              bmsState.charger_slow_present = 0; 
             }
         }
         //----------------------------------------------------------------------
@@ -286,6 +305,10 @@ void main(void)
             case SM_BATTERY_DEAD: 
                 // TODO actions to define
                 bmsState.smMain = SM_BATTERY_DEAD;
+                if(BUTTON == 1)         // press button to retry @ start for example
+                {
+                    bmsState.smMain = SM_IDLE;  
+                }
             break;        
         }
     }

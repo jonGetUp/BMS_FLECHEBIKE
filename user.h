@@ -13,8 +13,7 @@ void InitApp(void);         /* I/O and Peripheral Initialization */
         // temperatures to check
 uint8_t check_overTemp(uint8_t mos_t, uint8_t bal_t, uint8_t pack_t, uint8_t internal_t);
 
-void led_display(ledDisplay display);  
-void led_display_charge(uint16_t packVoltage);
+void ledUpdate(ledDisplay display);
 
 bmsFault FaultAnalyse(void);
 smMain sm_execute_idle(void);

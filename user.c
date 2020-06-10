@@ -116,46 +116,58 @@ void InitApp(void)
     IOCBN = 0x03;                       // enable falling on RB0, RB1
 }
 
-/*********************************************************************************/
-/*********************************************************************************/
-void led_display(ledDisplay display)
+void ledUpdate(ledDisplay display)
 {
-    volatile uint8_t dummy;
-    
-    
-    RA2PPS=0b100000;                    // RA2 is the CS signal
+   volatile uint8_t dummy;
+   uint8_t toDisplay=0;
+   static uint8_t duty;
+   static uint8_t dutyCounter=0;
+   switch(display)
+   {
+       //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+       LED_CHARGE:
+       duty = 9;
+       for(uint8_t i=0;i<10;i++)
+       {
+            if(bmsState.batVolt < SL_PACK[i])
+            {
+                duty = duty - 1;
+            }
+       }
+       dutyCounter = (dutyCounter+1) % 10;
+       if(dutyCounter < duty)
+       {
+           if(duty < 2)
+           {
+               toDisplay = SET_LED_RED;
+           }
+           else
+           {
+               toDisplay = SET_LED_GREEN;
+           }
+       }
+       else
+       {
+           toDisplay = SET_LED_OFF;
+       }
+       break;
+       //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+       default:
+           toDisplay = display;
+       break;
+   }
+   RA2PPS=0b100000;                    // RA2 is the CS signal
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
-    SPI1TXB=display;                    // write leds activity
+    SPI1TXB=toDisplay;                  // write leds activity
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
     dummy = SPI1RXB;                    //dummy read to drive ss high    
-    RA2PPS=0b000000;                    // RA2 is GPIO high
-}
-/*********************************************************************************/
-/*********************************************************************************/
-void led_display_charge(uint16_t packVoltage)
-{
-    volatile uint8_t dummy;
-    uint8_t display = 0b11111111;       // default all led on
-    for(uint8_t i=0;i<8;i++)
-    {
-        if(packVoltage < SL_PACK[i])
-        {
-            display = display >> 1;
-        }
-    }    
-    RA2PPS=0b100000;                    // RA2 is the CS signal
-    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    while (SPI1CON2bits.BUSY){};        // check no pending communication
-    SPI1TCNT = 1;                       // bytes to send = 1
-    SPI1TXB=display;                    // write leds activity
-    while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    dummy = SPI1RXB;                    //dummy read to drive ss high    
-    RA2PPS=0b000000;                    // RA2 is GPIO high
+    RA2PPS=0b000000;                    // RA2 is GPIO high    
+    bmsState.ledDisplay = toDisplay;
 }
 
-/*********************************************************************************/
+
 /*********************************************************************************/
 uint8_t check_cell_underV(uint16_t cellVoltage)
 {
@@ -316,6 +328,7 @@ void balance_current(void)
     {
         bmsState.charger_voltage_to_set = bmsState.charger_voltage_to_set - 1; // reduce of 100mV
     }
+    // TODO, increase if lower than limit
 }
 
 /*********************************************************************************/
@@ -447,24 +460,24 @@ smMain sm_execute_error_idle(void)
         nSHDN = 0;                          // disable MOSFET
         if(bmsState.charger_fast_present != 0)
         {
-            led_display(LED_OFF);
+            ledUpdate(LED_OFF);
             nSHDN = 1;                      // enable MOSFET
             return SM_FAST_CHARGE_START; 
         }
         if(bmsState.charger_slow_present)
         {
             nSHDN = 1;                      // enable MOSFET
-            led_display(LED_OFF);
+            ledUpdate(LED_OFF);
             return SM_SLOW_CHARGE_START; 
         }
-        led_display(LED_UNDERVOLTAGE);
+        ledUpdate(LED_UNDERVOLTAGE);
         return SM_ERROR_IDLE;
     }
     //--------------------------------------------------------------
     if(check_cell_overV(SL_HIGH_VOLTAGE))
     {
         // normally never arrive
-        led_display(LED_OVERVOLTAGE);
+        ledUpdate(LED_OVERVOLTAGE);
         return SM_ERROR_IDLE;
     }
     //--------------------------------------------------------------
@@ -473,7 +486,7 @@ smMain sm_execute_error_idle(void)
                       SL_TEMP_BATT_LIMIT - SL_TEMP_HYSTERESIS,
                       SL_TEMP_INTERNAL_LIMIT - SL_TEMP_HYSTERESIS))
     {
-        led_display(LED_TEMPHIGH | temp8);
+        ledUpdate(LED_TEMPHIGH | temp8);
         nSHDN = 0;                          // disable MOSFET
         return SM_ERROR_IDLE;
     }    
@@ -481,11 +494,11 @@ smMain sm_execute_error_idle(void)
     if(bmsState.curFault != NO_FAULT)
     {
         // see datasheet isl94212 p.65 for details
-        led_display(LED_BMS_ERROR | (bmsState.curFaultDetail>>7));
+        ledUpdate(LED_BMS_ERROR | (bmsState.curFaultDetail>>7));
         nSHDN = 0;                          // disable MOSFET
         return SM_ERROR_IDLE;
     }    
-    led_display(LED_OFF);
+    ledUpdate(LED_OFF);
     return SM_IDLE;     // no more error they was previously
 }
 /*********************************************************************************/
@@ -494,7 +507,7 @@ smMain sm_execute_load(void)
 {
     if(check_cell_underV(SL_WARN_VOLTAGE))  // lower than warning limit
     {
-        led_display(LED_WARN_LOW);
+        ledUpdate(LED_WARN_LOW);
         return SM_LOAD; 
     }
     //--------------------------------------------------------------
@@ -568,7 +581,7 @@ smMain sm_execute_fast_charge_low(void)
     //--------------------------------------------------------------
     if(check_cell_overV(SL_END_VOLTAGE))  // one cell too high and one loo low -> pack dead
     {
-        led_display(LED_BATTERY_DEAD);
+        ledUpdate(LED_BATTERY_DEAD);
         nSHDN = 0;                          // disable MOSFET
         return SM_BATTERY_DEAD; 
     }
@@ -596,7 +609,7 @@ smMain sm_execute_fast_charge_high(void)
     //--------------------------------------------------------------
     if(check_cell_overV(SL_END_VOLTAGE))    // one cell at limit
     {
-        led_display(LED_CHARGE_END);
+//        led_display(LED_CHARGE_END);
         balance_pack(0);                    // stop balance pack
         nSHDN = 0;                          // disable MOSFET
         return SM_FAST_CHARGE_STOP; 
@@ -616,7 +629,7 @@ smMain sm_execute_fast_charge_stop(void)
     //--------------------------------------------------------------
     if(bmsState.charger_fast_present == 0)  // no more charger connected
     {
-        led_display(LED_OFF);
+//        led_display(LED_OFF);
         nSHDN = 1;                          // enable MOSFET
         return SM_IDLE; 
     }
@@ -655,7 +668,7 @@ smMain sm_execute_slow_charge(void)
     //--------------------------------------------------------------
     if(check_cell_overV(SL_END_VOLTAGE))    // one cell at limit
     {
-        led_display(LED_CHARGE_END);
+//        led_display(LED_CHARGE_END);
         balance_pack(0);                    // stop balance pack
         nSHDN = 0;                          // disable MOSFET
         return SM_SLOW_CHARGE_STOP;
@@ -663,7 +676,7 @@ smMain sm_execute_slow_charge(void)
     //--------------------------------------------------------------
      if(bmsState.battery_current < -SL_CURRENT_MAX_PACK)
      {
-        led_display(LED_CURRENT_HIGH);
+ //       led_display(LED_CURRENT_HIGH);
         balance_pack(0);                    // stop balance pack
         nSHDN = 0;                          // disable MOSFET
         return SM_SLOW_CHARGE_STOP; 
@@ -684,7 +697,7 @@ smMain sm_execute_slow_charge_stop(void)
     //--------------------------------------------------------------
     if(bmsState.charger_slow_present == 0)
     {
-        led_display(LED_OFF);
+//        led_display(LED_OFF);
         nSHDN = 1;                          // enable MOSFET
         return SM_IDLE; 
     }

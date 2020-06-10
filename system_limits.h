@@ -8,13 +8,14 @@
 #define __SYSTEM_LIMITS_H
 #include "main.h"
 
-#define PROTO_DEBUG 1                   // to simulate current
+#define PROTO_DEBUG 0                   // to simulate current (1)
 
+#define SL_ZERO_CURRENT_OFFSET      -93L    // measured current when no current
 #define CELL_PRESENCE   (0b111110011111)    // all except 5 and 6
 
-#define SL_CURRENT_FOR_CHARGE (200L)    // at least 200mA for charge mode
-#define SL__CURRENT_FOR_LOAD (200L)    //  at least 200mA for load mode
-#define SL_CURRENT_NEAR_0   (20)        // 20 mA or less is considered as 0mA
+#define SL_CURRENT_FOR_CHARGE (400L)    // at least xxx mA for charge mode
+#define SL__CURRENT_FOR_LOAD (400L)    //  at least xxx mA for load mode
+#define SL_CURRENT_NEAR_0   (40)        // xx mA or less is considered as 0mA
 #define SL_CURRENT_MAX_PACK (8000L)     // 8 A is max charging current (for example)
 
 
@@ -52,5 +53,5 @@
 #define SL_LOAD_MAX_TIME        (200)   // 2 seconds for example ( 200 x 10ms)
 // voltage table to display energy on pack (8 leds to 0 led)
 // TODO -> values to be defined seriously
-const uint16_t SL_PACK[] = {41200,40000,39000,38500,38200,37800,37000,36200};
+const uint16_t SL_PACK[] = {41200,40000,39000,38500,38200,37800,37200,36900, 36500,36100};
 #endif
