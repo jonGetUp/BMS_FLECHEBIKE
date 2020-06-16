@@ -22,13 +22,15 @@
 #define SL_DEAD_VOLTAGE     (3200)      // 3.2V is a voltage on dead cell
 #define SL_LOW_VOLTAGE      (3500)      // 3.5V is voltage require low charge current
 #define SL_WARN_VOLTAGE     (3600)      // 3.6V is voltage warning for load mode
+#define SL_STOP_CHARGING_VOLTAGE      (4201)      // 4.198 V is voltage for end of charge
 #define SL_END_VOLTAGE      (4198)      // 4.198 V is voltage for end of charge
 #define SL_HIGH_VOLTAGE     (4210)      // 4.21 V is voltage too high on cell (normally never)
 
 #define SL_CHARGER_CURRENT_LOW  (10)    // 1A for test
 #define SL_CHARGER_CURRENT_HIGH (10)    // 1A for test
-#define SL_CHARGER_VOLTAGE      (410)   // 41V 
-#define SL_VOLTAGE_TO_LIMIT_CURRENT (4100) // voltage on one cell to reduce charger voltage
+#define SL_CHARGER_VOLTAGE      (420)   // 42V 
+#define SL_VOLTAGE_TO_LIMIT_CURRENT (4190) // voltage on one cell to reduce charger voltage
+#define SL_VOLTAGE_TO_INCREASE_CURRENT (4170) // voltage on one cell to reduce charger voltage
 #define SL_CELLCOUNT_TO_BALANCE (3)     // 3 higher cells are balanced
 #define SL_TIME_TO_BALANCE_CELL (4)     // do a cell balance each 4 seconds
 #define SL_TIME_TO_BALANCE_VOLTAGE (8)     // do a charger voltage reduction each ...
@@ -51,7 +53,7 @@
 
 #define SL_LOAD_MAX_CURRENT     (40000L) // max. is 40 Amps for example
 #define SL_LOAD_MAX_TIME        (200)   // 2 seconds for example ( 200 x 10ms)
-// voltage table to display energy on pack (8 leds to 0 led)
-// TODO -> values to be defined seriously
-const uint16_t SL_PACK[] = {41200,40000,39000,38500,38200,37800,37200,36900, 36500,36100};
+// voltage table to display energy on pack (duty cycle display)
+// values set from prc measures
+const uint16_t SL_PACK[] = {41414,41007,40728,40515,40323,40116,39888,39620, 39096,36000};
 #endif

@@ -83,6 +83,7 @@ void main(void)
      __delay_ms(30);                    // 27.2 ms at least datasheet p.7
     //--------------------------------------------------------------------------
     isl_init();                         // init battery manager, scan all
+    isl_write(ISL_FAULTSTATUS,0);
     isl_scan_update_voltages();   
  
     adc_init();                         // init the adc converter
@@ -90,7 +91,7 @@ void main(void)
 #if PROTO_NUM == 1
     can_start();                        // always enable driver on proto 1
 #elif PROTO_NUM == 2
-    can_start();
+//    can_start();
     can_stop();                         // don't enable sender on proto 2 (receive always active)
 #endif    
     GIEH = 1;
@@ -113,6 +114,10 @@ void main(void)
  isl_scan_update_voltages();    
     while(1)
     {
+        if((CAN_POWERDOWN == 1) && PORTBbits.RB3 == 0) // just see can message
+        {
+            CAN_POWERDOWN = 0;  // enable driver
+        }
         //----------------------------------------------------------------------
         if(time10ms != 0)               // actions to execute each 10ms
         {
@@ -131,19 +136,21 @@ void main(void)
                 {
                     ledUpdate(LED_CHARGE);
                 }
+                else if((bmsState.ledDisplay & 0x60) != 0)
+                {
+                    ledUpdate(LED_OFF);
+                }
+                if(BUTTON == 1)
+                {
+                    btnPressed = 1;
+                    ledUpdate(LED_CHARGE);
+                }
+                else if(btnPressed == 1)
+                {
+                    ledUpdate(LED_OFF);
+                    btnPressed = 0;
+                }
             }
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-#if PROTO_NUM == 2                  // button only exist in proto 2
-            if(BUTTON == 1)
-            {
-                btnPressed = 1;
-                ledUpdate(LED_CHARGE);
-            }
-            else if(btnPressed == 1)
-            {
-                btnPressed = 0;
-            }
-#endif
             //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
             bmsState.battery_current = adc_getOneMeasure(ADC_CHANNEL_CURRENT);  // get one current measure of battery
             if(bmsState.charger_fast_timer > 0)
@@ -152,6 +159,8 @@ void main(void)
                 if(bmsState.charger_fast_timer == 0)
                 {
                     #if PROTO_NUM == 2
+                    CAN_POWERDOWN = 1;
+                    
                         can_stop();             // disable sender on proto 2 (receive always active)
                     #endif  
                     FASTCHARGE = 0;
@@ -202,7 +211,8 @@ void main(void)
                 isl_command(ISL_CMD_SCANWIRES);    // scan for openwire problems
             }
             //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-            if((bmsState.smMain == SM_FAST_CHARGE_LOW)||
+            if((bmsState.smMain == SM_FAST_CHARGE_START)||
+                    (bmsState.smMain == SM_FAST_CHARGE_LOW)||
                 (bmsState.smMain == SM_FAST_CHARGE_HIGH))
             {
                 can_send_charger_consign(bmsState.charger_voltage_to_set,

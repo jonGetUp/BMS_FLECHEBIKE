@@ -18,7 +18,7 @@
 #endif
 
 #include "Pinnames.h"    /*header where all pin name are defined as in BMS plan*/
-//#include "main.h"
+#include "main.h"
 #include "user.h"
 #include "isl94212regs.h"
 #include "isl94212.h"
@@ -116,28 +116,29 @@ void InitApp(void)
     IOCBN = 0x03;                       // enable falling on RB0, RB1
 }
 
+
 void ledUpdate(ledDisplay display)
 {
+   static uint8_t duty;
    volatile uint8_t dummy;
    uint8_t toDisplay=0;
-   static uint8_t duty;
    static uint8_t dutyCounter=0;
    switch(display)
    {
        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-       LED_CHARGE:
-       duty = 9;
+       case LED_CHARGE:
+       duty = 10;
        for(uint8_t i=0;i<10;i++)
        {
             if(bmsState.batVolt < SL_PACK[i])
             {
                 duty = duty - 1;
-            }
+            }           
        }
        dutyCounter = (dutyCounter+1) % 10;
        if(dutyCounter < duty)
        {
-           if(duty < 2)
+           if(duty < 3) // under 30% energy -> red color
            {
                toDisplay = SET_LED_RED;
            }
@@ -156,6 +157,7 @@ void ledUpdate(ledDisplay display)
            toDisplay = display;
        break;
    }
+   toDisplay = toDisplay | (bmsState.ledDisplay & 0x0F);
    RA2PPS=0b100000;                    // RA2 is the CS signal
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
@@ -323,12 +325,17 @@ uint16_t balance_pack(uint8_t cellCount)
 /*********************************************************************************/
 void balance_current(void)
 {
-    // TODO, depending on max cell voltage, reduce charger voltage to reduce current
     if(get_higher_voltage() > SL_VOLTAGE_TO_LIMIT_CURRENT)
     {
         bmsState.charger_voltage_to_set = bmsState.charger_voltage_to_set - 1; // reduce of 100mV
     }
-    // TODO, increase if lower than limit
+    if(get_higher_voltage() < SL_VOLTAGE_TO_INCREASE_CURRENT)
+    {
+        if(bmsState.charger_voltage_to_set < SL_CHARGER_VOLTAGE)
+        {
+            bmsState.charger_voltage_to_set = bmsState.charger_voltage_to_set + 1; // increase of 100mV
+        }
+    }
 }
 
 /*********************************************************************************/
@@ -378,6 +385,7 @@ bmsFault FaultAnalyse(void)
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     if(statFault == 0)             // just ISR because command of mosfet
     {
+        isl_write(ISL_FAULTSTATUS,0);   // clear fault flag
         bmsState.curFault = NO_FAULT;
         return NO_FAULT;
     }
@@ -549,6 +557,12 @@ smMain sm_execute_fast_charge_start(void)
         return SM_ERROR_IDLE; 
     }
     //--------------------------------------------------------------
+    if(bmsState.charger_fast_present == 0)  // no more charger present
+    {
+        ledUpdate(LED_OFF);
+        return SM_IDLE; 
+    }
+    //--------------------------------------------------------------
     if(check_cell_underV(SL_LOW_VOLTAGE))  // lower than warning limit
     {
         bmsState.charger_voltage_to_set = SL_CHARGER_VOLTAGE;
@@ -557,7 +571,9 @@ smMain sm_execute_fast_charge_start(void)
     }
     bmsState.charger_voltage_to_set = SL_CHARGER_VOLTAGE;
     bmsState.charger_current_to_set = SL_CHARGER_CURRENT_HIGH;
-    return SM_FAST_CHARGE_HIGH; 
+    if(bmsState.charger_current > 0)
+        return SM_FAST_CHARGE_HIGH; 
+    return SM_FAST_CHARGE_START;
 }
 /*********************************************************************************/
 /*********************************************************************************/
@@ -607,7 +623,13 @@ smMain sm_execute_fast_charge_high(void)
         return SM_ERROR_IDLE;
     }   
     //--------------------------------------------------------------
-    if(check_cell_overV(SL_END_VOLTAGE))    // one cell at limit
+    if(check_cell_overV(SL_STOP_CHARGING_VOLTAGE))    // one cell at absolute limit (more safe)
+    {
+        balance_pack(0);                    // stop balance pack
+        nSHDN = 0;                          // disable MOSFET
+        return SM_FAST_CHARGE_STOP;         
+    }
+    if(bmsState.charger_current == 0)            // charger charge 0 A
     {
 //        led_display(LED_CHARGE_END);
         balance_pack(0);                    // stop balance pack
