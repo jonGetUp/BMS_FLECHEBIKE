@@ -469,12 +469,14 @@ smMain sm_execute_error_idle(void)
         if(bmsState.charger_fast_present != 0)
         {
             ledUpdate(LED_OFF);
+            bmsState.mosfetOldState = 1;
             nSHDN = 1;                      // enable MOSFET
             return SM_FAST_CHARGE_START; 
         }
         if(bmsState.charger_slow_present)
         {
             nSHDN = 1;                      // enable MOSFET
+            bmsState.mosfetOldState = 1;
             ledUpdate(LED_OFF);
             return SM_SLOW_CHARGE_START; 
         }
@@ -652,6 +654,7 @@ smMain sm_execute_fast_charge_stop(void)
     if(bmsState.charger_fast_present == 0)  // no more charger connected
     {
 //        led_display(LED_OFF);
+        bmsState.mosfetOldState = 1;
         nSHDN = 1;                          // enable MOSFET
         return SM_IDLE; 
     }
@@ -720,6 +723,7 @@ smMain sm_execute_slow_charge_stop(void)
     if(bmsState.charger_slow_present == 0)
     {
 //        led_display(LED_OFF);
+        bmsState.mosfetOldState = 1;
         nSHDN = 1;                          // enable MOSFET
         return SM_IDLE; 
     }

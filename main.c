@@ -100,7 +100,7 @@ void main(void)
     //--------------------------------------------------------------------------
     bmsState.smMain = SM_IDLE;              // just powered on
     nSHDN = 1;                              // enable MOSFET
-
+    bmsState.mosfetOldState = 1;
     // cell voltage and temp. are controlled with measures, values are stupid
     isl_write(ISL_OVERVOLT_SET,isl_conv_mv2Cell(4500)); // clearly too high
     isl_write(ISL_UNDERVOLT_SET,isl_conv_mv2Cell(3000));// clearly too low
@@ -173,13 +173,29 @@ void main(void)
 #elif PROTO_NUM == 1
             bmsState.external_voltage = 0;  // no measure of this voltage in rev.1
 #endif
-            if(bmsState.external_voltage > 6000) // more than 6 volts (for example)
+            // TODO -> test all is below
+            if(nSHDN == 0)                  // mosfet is turned OFF (pack decoupled)
             {
- //TODO consider this only when mosfet are off              bmsState.charger_slow_present = 1; 
-            }
-            else
-            {
- //TODO consider this only when mosfet are off              bmsState.charger_slow_present = 0; 
+                if(bmsState.mosfetOldState == 1) // mosfet just passed to 0
+                {
+                    bmsState.mosfetOldState = 0;
+                    bmsState.mosTimer = 3000;   // wait 30 seconds to dischage enough capacitor
+                }
+                else if (bmsState.mosTimer != 0)
+                {
+                  bmsState.mosTimer--;
+                }
+                else
+                {
+                    if(bmsState.external_voltage > 10000) // more than a pseudo value ... not precise at all
+                    {
+                       bmsState.charger_slow_present = 1; 
+                    }
+                    else
+                    {
+                       bmsState.charger_slow_present = 0; 
+                    }
+                }
             }
         }
         //----------------------------------------------------------------------

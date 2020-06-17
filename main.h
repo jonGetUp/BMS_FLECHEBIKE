@@ -62,6 +62,8 @@ typedef enum
 struct BMS_STATE
 {
     smMain              smMain;                 // current state of BMS
+    uint8_t             mosfetOldState;         // to see change for waiting capacitor down
+    uint16_t            mosTimer;               // timer to count capa discharge
     bmsFault            curFault;               // fault on system
     uint8_t             curFaultDetail;         // fault on system
     uint8_t             ledDisplay;             // current led display (except button pressed)
