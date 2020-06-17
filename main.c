@@ -74,6 +74,7 @@ void main(void)
     CANInit();                          // initialize CAN bus
     CANSetMode(CAN_NORMAL_MODE);        // normal mode
     //--------------------------------------------------------------------------
+    
     EN_Vref = 1;                        // enable voltage reference
 #if PROTO_NUM == 1    
     nEN_Isense = 0;                     // enable current measure
@@ -189,6 +190,10 @@ void main(void)
                 {
                     if(bmsState.external_voltage > 10000) // more than a pseudo value ... not precise at all
                     {
+                        if(bmsState.smMain == SM_SLOW_CHARGE_STOP)
+                        {
+                            bmsState.mosfetOldState = 1;     // to recheck at end of a slow charge (if charger removed)
+                        }
                        bmsState.charger_slow_present = 1; 
                     }
                     else

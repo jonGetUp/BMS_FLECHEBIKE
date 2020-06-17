@@ -572,7 +572,11 @@ smMain sm_execute_fast_charge_start(void)
         return SM_FAST_CHARGE_LOW; 
     }
     bmsState.charger_voltage_to_set = SL_CHARGER_VOLTAGE;
+#if BLUETOOTH == 0
     bmsState.charger_current_to_set = SL_CHARGER_CURRENT_HIGH;
+#else
+    
+#endif
     if(bmsState.charger_current > 0)
         return SM_FAST_CHARGE_HIGH; 
     return SM_FAST_CHARGE_START;
