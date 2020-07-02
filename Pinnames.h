@@ -11,7 +11,7 @@
 
 #define nBatt_FAULT LATBbits.LATB0
 #define nFAULT LATBbits.LATB1
-#define nDRDY LATBbits.LATB2
+#define IRQ_BT LATBbits.LATB2
 #define CANRX LATBbits.LATB3
 #define CANTX LATBbits.LATB4
 #define FASTCHARGE LATBbits.LATB5   // (hardware rev.2)

@@ -26,6 +26,10 @@ uint8_t time10msOverCurrent = 0;
 uint8_t time1s = 0;
 uint8_t islFault = 0;
 uint8_t batFault = 0;
+#if BLE_MODULE == 1
+    uint8_t irqBt = 0;
+#endif
+
 /******************************************************************************/
 /* Interrupts Routine                                                         */
 /******************************************************************************/
@@ -84,6 +88,22 @@ void __interrupt(high_priority) high_isr(void)
                 batFault = 0;
             }
         }
+#if BLE_MODULE == 1
+        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+        if(IOCBFbits.IOCBF2 == 1)
+        {
+            IOCBFbits.IOCBF2 = 0;   //clear flag
+            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            if(PORTBbits.RB2 == 1)
+            {
+                irqBt = 1;
+            }
+            else
+            {
+                irqBt = 0;
+            }
+        }
+#endif
     }
 }
 

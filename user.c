@@ -52,7 +52,7 @@ void InitApp(void)
     // BIT   DIR        NAME
     //  0    INPUT_INT  /Batt_FAULT from LTC4368HMS
     //  1    INPUT_INT  /FAULT from ISL94212INZ
-    //  2    INPUT_?    /DRDY from ISL94212INZ
+    //  2    INPUT_INT  IRQ_BT from nRF52840
     //  3    INPUT      CAN_RX
     //  4    OUTPUT     CAN_TX
     //  5    OUTPUT     FAST_CHARGE (hardware rev.2)
@@ -112,8 +112,14 @@ void InitApp(void)
     //--------------------------------------------------------------------------            
     // external interrupt control
     IOCIE = 1;                          // enable external interrupts
+#if BLE_MODULE == 1
+    IOCBP = 0x04;                       // enable rising on RB2
+    IOCBN = 0x00;                       // enable falling on -
+#else
     IOCBP = 0x03;                       // enable rising on RB0, RB1
     IOCBN = 0x03;                       // enable falling on RB0, RB1
+#endif
+    
 }
 
 
