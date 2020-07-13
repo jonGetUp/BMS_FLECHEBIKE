@@ -21,6 +21,10 @@
 
 #endif
 
+#if BLE_MODULE == 1
+    #include "spi.h"
+#endif
+
 
 
 #include <xc.h>
@@ -113,9 +117,23 @@ void main(void)
             0 << ISL_FS_INTERVAL_SHIFT);    // scan interval of 16ms but not used (manual))
     //--------------------------------------------------------------------------
  isl_scan_update_voltages();    
+ #if BLE_MODULE == 1
+        SPI_init();
+        uint32_t res;
+#endif 
     while(1)
     {
-        if((CAN_POWERDOWN == 1) && PORTBbits.RB3 == 0) // just see can message
+#if BLE_MODULE == 1
+        SPI_write(0x41);
+//        isl_write(0xAA,0xAA);
+        //----------------------------------------------------------------------
+//        if(irqBt != 0)   // fault from ISL, must be cleared by ISL isr
+//        {
+//            res = SPI_read();
+//            irqBt = 0; //flag reset
+//        }
+#endif        
+        /*if((CAN_POWERDOWN == 1) && PORTBbits.RB3 == 0) // just see can message
         {
             CAN_POWERDOWN = 0;  // enable driver
         }
@@ -341,7 +359,7 @@ void main(void)
                     bmsState.smMain = SM_IDLE;  
                 }
             break;        
-        }
+        }*/
     }
 }
 

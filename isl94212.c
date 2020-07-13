@@ -212,24 +212,18 @@ uint16_t isl_read(uint16_t regAddr)
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(regAddr >> 8);             // write msb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    LATA5 = 1;
-    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(regAddr & 0xFF);           // write lsb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    LATA5 = 1;
-    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    LATA5 = 1;
-    LATA5 = 0;
     result = SPI1RXB;                   // get 6 useful msb
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
@@ -251,23 +245,19 @@ void isl_write(uint16_t regAddr, uint16_t data)
     
     RA5PPS=0b100000;                    // RA5 is the CS signal
     regAddr = regAddr | 0x8000;         // set write bit    
-    dataCompiled = ((uint32_t)regAddr << 8) | data;  // concat both params
+        dataCompiled = ((uint32_t)regAddr << 8) | data;  // concat both params
 
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(dataCompiled >> 16);       // write msb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-     LATA5 = 1;
-    LATA5 = 0;
    dummy = SPI1RXB;                    //dummy read to drive ss high    
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(dataCompiled >> 8);        // write lsb address with data
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-     LATA5 = 1;
-    LATA5 = 0;
    dummy = SPI1RXB;                    //dummy read to drive ss high    
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
@@ -291,24 +281,18 @@ void isl_command(uint16_t command)
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(command >> 8);             // write msb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    LATA5 = 1;
-    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=(command & 0xFF);           // write lsb address
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    LATA5 = 1;
-    LATA5 = 0;
     dummy = SPI1RXB;                    //dummy read to drive ss high
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication
     SPI1TCNT = 1;                       // bytes to send = 1
     SPI1TXB=0;                          // write nothing to read
     while(PIR2bits.SPI1RXIF==0);        // while transmission occurs, wait 
-    LATA5 = 1;
-    LATA5 = 0;
     dummy = SPI1RXB;                    // get 6 useful msb
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     while (SPI1CON2bits.BUSY){};        // check no pending communication

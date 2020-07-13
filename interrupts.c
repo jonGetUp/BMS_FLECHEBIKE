@@ -36,9 +36,9 @@ uint8_t batFault = 0;
 void __interrupt(high_priority) high_isr(void)
 {
     static uint8_t counter10ms=0;
-    //----------------------------------------------------------------------------
-    // interrupt from CANbus ?
-    CANISR();
+//    //----------------------------------------------------------------------------
+//    // interrupt from CANbus ?
+//    CANISR();
     //----------------------------------------------------------------------------
     // interrupt each 10ms
     if((TMR0IE == 1) && (TMR0IF == 1))
@@ -56,55 +56,56 @@ void __interrupt(high_priority) high_isr(void)
             time1s = 1;
         }
     }
-    //----------------------------------------------------------------------------
-    // external interrupts
-    if((IOCIE == 1)&&(IOCIF == 1))
-    {
-        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        if(IOCBFbits.IOCBF1 == 1)
-        {
-            IOCBFbits.IOCBF1 = 0;
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            if((PORTB & 0x02) == 0)
-            {
-                islFault = 1;
-            }
-            else
-            {
-                islFault = 0;
-            }
-        }
-        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        if(IOCBFbits.IOCBF0 == 1)
-        {
-            IOCBFbits.IOCBF0 = 0;
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            if((PORTB & 0x01) == 0)
-            {
-                batFault = 1;
-            }
-            else
-            {
-                batFault = 0;
-            }
-        }
-#if BLE_MODULE == 1
-        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        if(IOCBFbits.IOCBF2 == 1)
-        {
-            IOCBFbits.IOCBF2 = 0;   //clear flag
-            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            if(PORTBbits.RB2 == 1)
-            {
-                irqBt = 1;
-            }
-            else
-            {
-                irqBt = 0;
-            }
-        }
-#endif
-    }
+    
+//    //----------------------------------------------------------------------------
+//    // external interrupts
+//    if((IOCIE == 1)&&(IOCIF == 1))
+//    {
+//        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+//        if(IOCBFbits.IOCBF1 == 1)
+//        {
+//            IOCBFbits.IOCBF1 = 0;
+//            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//            if((PORTB & 0x02) == 0)
+//            {
+//                islFault = 1;
+//            }
+//            else
+//            {
+//                islFault = 0;
+//            }
+//        }
+//        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+//        if(IOCBFbits.IOCBF0 == 1)
+//        {
+//            IOCBFbits.IOCBF0 = 0;
+//            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//            if((PORTB & 0x01) == 0)
+//            {
+//                batFault = 1;
+//            }
+//            else
+//            {
+//                batFault = 0;
+//            }
+//        }
+//#if BLE_MODULE == 1
+//        //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+//        if(IOCBFbits.IOCBF2 == 1)
+//        {
+//            IOCBFbits.IOCBF2 = 0;   //clear flag
+//            //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//            if(PORTBbits.RB2 == 1)
+//            {
+//                irqBt = 1;
+//            }
+//            else
+//            {
+//                irqBt = 0;
+//            }
+//        }
+//#endif
+//    }
 }
 
 

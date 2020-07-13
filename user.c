@@ -40,10 +40,10 @@ void InitApp(void)
     //  1    INPUT_A    VLoad_Measure (hardware rev.2)
     //  2    OUTPUT     /CS for LEDs (hardware rev.2)
     //  3    INPUT_A    4.096 Vref (analogic reference voltage)
-    //  4    OUTPUT     /CS for Bluetooth (hardware rev.2)
+    //  4    OUTPUT     /SS for Bluetooth (hardware rev.2)
     //  5    OUTPUT     /SS (chip select for ISL94212INZ)
-    //  6    OUTPUT     crystal 32.768kHz
-    //  7    INPUT      crystal 32.768kHz    
+    //  6    INPUT      crystal 32.768kHz
+    //  7    OUTPUT     crystal 32.768kHz    
     LATA = 0x34;
     TRISA = 0x4B;
     ANSELA= 0x0B;
@@ -114,7 +114,7 @@ void InitApp(void)
     IOCIE = 1;                          // enable external interrupts
 #if BLE_MODULE == 1
     IOCBP = 0x04;                       // enable rising on RB2
-    IOCBN = 0x00;                       // enable falling on -
+    IOCBN = 0x00;                       // enable falling on RB2, to reset the flag
 #else
     IOCBP = 0x03;                       // enable rising on RB0, RB1
     IOCBN = 0x03;                       // enable falling on RB0, RB1
@@ -126,7 +126,7 @@ void InitApp(void)
 void ledUpdate(ledDisplay display)
 {
    static uint8_t duty;
-   volatile uint8_t dummy;
+   volatile uint8_t dummy;  //Volatile: omitted from optimization, value can't be determined by the compiler
    uint8_t toDisplay=0;
    static uint8_t dutyCounter=0;
    switch(display)
